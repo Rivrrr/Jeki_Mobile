@@ -108,6 +108,30 @@ class ApiClient {
     }
   }
 
+  // ─── PUT ───────────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> put(
+    String pathOrUrl, {
+    Map<String, dynamic>? body,
+    bool requiresAuth = true,
+  }) async {
+    final finalUrl = await resolveUrl(pathOrUrl);
+    try {
+      final headers  = await _buildHeaders(requiresAuth: requiresAuth);
+      final response = await http
+          .put(
+            Uri.parse(finalUrl),
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(ApiConstants.receiveTimeout);
+      return _parseResponse(response);
+    } on TimeoutException {
+      return _timeoutError(finalUrl);
+    } catch (e) {
+      return _networkOrUnknownError(e, finalUrl);
+    }
+  }
+
   // ─── POST Multipart (for file/bytes uploads) ────────────────────────────────
   static Future<Map<String, dynamic>> postMultipart(
     String pathOrUrl, {

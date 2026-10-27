@@ -4,6 +4,7 @@ import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/presentation/widgets/animated_blob_background.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -214,42 +215,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
               clipper: CustomHeaderClipper(),
               child: Container(
                 width: double.infinity,
-                height: 220,
+                height: 270,
                 decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                 ),
                 child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.2),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-                        ),
-                        child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 24),
+                  child: AnimatedBlobBackground(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 66,
+                            height: 66,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              color: Colors.white.withValues(alpha: 0.22),
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.45)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFB50060)
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.home_rounded,
+                                color: Colors.white, size: 34),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Buat Akun Baru',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            'Masuk untuk melaporkan infrastruktur',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.88),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Buat Akun Baru',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Jeki',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

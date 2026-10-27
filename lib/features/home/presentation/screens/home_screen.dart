@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/constants/app_colors.dart';
+import 'package:infrast/core/services/storage_service.dart';
+import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/home/data/laporan_service.dart';
 import 'package:infrast/features/home/presentation/widgets/home_widgets.dart';
 import 'package:infrast/features/laporan/presentation/screens/create_laporan_screen.dart';
@@ -25,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _countDiproses = 0;
   int _countSelesai = 0;
   int _notifCount = 0;
+  String? _userName;
 
   // Lokasi pengguna untuk filter laporan terdekat
   double? _userLat;
@@ -33,8 +36,26 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadUser();
     _loadUserLocation();
     _loadReports();
+  }
+
+  Future<void> _loadUser() async {
+    final local = await StorageService.getUser();
+    if (mounted && local != null) {
+      setState(() {
+        _userName = local['name'] as String? ?? (local['email'] as String?)?.split('@')[0];
+      });
+    }
+    try {
+      final synced = await AuthService.syncUser();
+      if (mounted && synced != null) {
+        setState(() {
+          _userName = synced['name'] as String? ?? (synced['email'] as String?)?.split('@')[0];
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserLocation() async {
@@ -56,6 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadReports() async {
     setState(() => _loadingReports = true);
+    // Refresh user profile asynchronously
+    _loadUser();
     // Load laporan saya + semua laporan untuk peta/sekitar secara paralel
     final results = await Future.wait([
       LaporanService.fetchMyLaporan(),
@@ -220,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     HomeHeader(
                       onNotifTap: _openNotifikasi,
                       notifCount: _notifCount,
+                      userName: _userName,
                     ),
                     const Positioned(
                       bottom: -24,

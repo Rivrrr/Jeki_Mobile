@@ -10,14 +10,11 @@ import 'package:infrast/core/services/storage_service.dart';
 ///
 /// Token disimpan secara lokal menggunakan [StorageService] (SharedPreferences).
 ///
-/// ## Alur Login
+/// ## Alur Login (Multi-Role)
 /// ```
-/// Flutter → POST /api/login → Laravel Sanctum → token → SharedPreferences
-/// ```
-///
-/// ## Alur Request Terproteksi
-/// ```
-/// Flutter → GET /api/user + header "Authorization: Bearer <token>" → Laravel
+/// Flutter → POST /api/login → Laravel Sanctum → token + role → SharedPreferences
+///   role = 'masyarakat' → MainNavigation
+///   role = 'pelaksana'  → PelaksanaHomePage
 /// ```
 class AuthService {
   AuthService._(); // prevent instantiation
@@ -34,11 +31,15 @@ class AuthService {
   /// Ambil data user yang tersimpan secara lokal.
   static Future<Map<String, dynamic>?> getUser() => StorageService.getUser();
 
+  /// Ambil role user yang tersimpan secara lokal.
+  static Future<String?> getRole() => StorageService.getRole();
+
   // ─── Login ─────────────────────────────────────────────────────────────────
 
-  /// Login menggunakan email dan password khusus akun **Masyarakat**.
+  /// Login multi-role: menerima akun **masyarakat** maupun **pelaksana**.
   ///
-  /// Mengirimkan parameter `client_role: 'masyarakat'` ke server.
+  /// Backend menentukan role yang valid. Hasilnya disimpan ke storage
+  /// sehingga splash screen bisa melakukan routing yang benar.
   static Future<Map<String, dynamic>> login(
     String email,
     String password,
@@ -46,29 +47,31 @@ class AuthService {
     final response = await ApiClient.post(
       '/login',
       body: {
-        'email': email,
-        'password': password,
-        'client_role': 'masyarakat',
+        'email': email.trim().toLowerCase(),
+        'password': password.trim(),
       },
       requiresAuth: false,
     );
 
     if (response['success'] == true) {
       final data = response['data'] as Map<String, dynamic>;
-      final role = data['role'] ?? 'masyarakat';
+      final role = (data['role'] ?? 'masyarakat') as String;
 
-      // Pastikan role memang masyarakat
-      if (role != 'masyarakat') {
+      // Hanya izinkan role masyarakat dan pelaksana di app mobile
+      if (role != 'masyarakat' && role != 'pelaksana') {
         return {
           'success': false,
           'role_mismatch': true,
           'user_role': role,
-          'message': 'Akun Anda terdaftar sebagai $role. Aplikasi ini khusus untuk Warga Masyarakat.',
+          'message': 'Akun Anda ($role) tidak dapat menggunakan aplikasi mobile JEKI. '
+              'Akses Web Dashboard di browser: http://localhost:8000/login',
         };
       }
 
-      // Simpan token & data user ke SharedPreferences
+      // Simpan token, role, & data user ke SharedPreferences
       await StorageService.saveToken(data['access_token'] as String);
+      await StorageService.saveRole(role);
+
       if (data['user'] != null) {
         final user = Map<String, dynamic>.from(data['user'] as Map);
         user['role'] = role;
@@ -78,7 +81,7 @@ class AuthService {
         await StorageService.saveUser(user);
       }
 
-      return {'success': true, 'message': 'Berhasil masuk'};
+      return {'success': true, 'role': role, 'message': 'Berhasil masuk'};
     }
 
     return {
@@ -131,12 +134,14 @@ class AuthService {
 
     if (response['success'] == true) {
       final data = response['data'] as Map<String, dynamic>;
+      final role = (data['role'] ?? 'masyarakat') as String;
 
-      // Simpan token & data user ke SharedPreferences
+      // Simpan token, role & data user ke SharedPreferences
       await StorageService.saveToken(data['access_token'] as String);
+      await StorageService.saveRole(role);
       if (data['user'] != null) {
         final user = Map<String, dynamic>.from(data['user'] as Map);
-        user['role'] = data['role'] ?? 'masyarakat';
+        user['role'] = role;
         await StorageService.saveUser(user);
       }
 
@@ -168,7 +173,7 @@ class AuthService {
       // Tetap lanjutkan hapus data lokal meski request gagal
     }
 
-    // Hapus token & data user dari SharedPreferences
+    // Hapus token, role & data user dari SharedPreferences
     await StorageService.clearAll();
   }
 
@@ -180,10 +185,72 @@ class AuthService {
   /// Header: `Authorization: Bearer <token>`
   static Future<Map<String, dynamic>?> fetchProfile() async {
     final response = await ApiClient.get(ApiConstants.me);
-    if (response['success'] == true) {
+    if (response['success'] == true && response['data'] != null) {
       final data = response['data'] as Map<String, dynamic>;
       return data['user'] as Map<String, dynamic>?;
     }
     return null;
+  }
+
+  /// Sinkronisasi profil user dari server ke SharedPreferences.
+  /// Memastikan data user (seperti nama yang diubah di database) selalu up-to-date.
+  static Future<Map<String, dynamic>?> syncUser() async {
+    try {
+      final hasToken = await StorageService.hasToken();
+      if (!hasToken) return null;
+
+      final response = await ApiClient.get(ApiConstants.me);
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'] as Map<String, dynamic>;
+        final userData = data['user'];
+        if (userData is Map) {
+          final currentUser = await StorageService.getUser() ?? {};
+          final updatedUser = Map<String, dynamic>.from(currentUser);
+
+          updatedUser['id'] = userData['id'];
+          updatedUser['name'] = userData['name'];
+          updatedUser['email'] = userData['email'];
+          if (data['role'] != null) {
+            updatedUser['role'] = data['role'];
+            await StorageService.saveRole(data['role'] as String);
+          }
+          if (data['role_data'] != null) {
+            updatedUser['role_data'] = data['role_data'];
+          }
+
+          await StorageService.saveUser(updatedUser);
+          return updatedUser;
+        }
+      }
+    } catch (_) {}
+    return await StorageService.getUser();
+  }
+
+  /// Update nama / profil ke server Laravel lalu sinkronkan ke lokal
+  static Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    String? phone,
+  }) async {
+    final response = await ApiClient.put(
+      ApiConstants.me,
+      body: {
+        'name': name,
+        if (phone != null && phone.isNotEmpty) 'no_hp': phone,
+      },
+    );
+
+    if (response['success'] == true) {
+      final synced = await syncUser();
+      return {
+        'success': true,
+        'message': response['message'] ?? 'Profil berhasil diperbarui',
+        'user': synced,
+      };
+    }
+
+    return {
+      'success': false,
+      'message': response['message'] ?? 'Gagal memperbarui profil',
+    };
   }
 }

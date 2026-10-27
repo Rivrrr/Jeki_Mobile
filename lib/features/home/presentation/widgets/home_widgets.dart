@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
+import 'package:infrast/features/auth/data/auth_service.dart';
 
 // --- HOME HEADER ---
 class HomeHeader extends StatefulWidget {
   final VoidCallback? onNotifTap;
   final int notifCount;
+  final String? userName;
 
   const HomeHeader({
     super.key,
     this.onNotifTap,
     this.notifCount = 0,
+    this.userName,
   });
 
   @override
@@ -27,6 +30,7 @@ class _HomeHeaderState extends State<HomeHeader> {
   }
 
   Future<void> _loadUserName() async {
+    // 1. Ambil dari storage lokal dahulu agar instan
     final user = await StorageService.getUser();
     if (mounted && user != null) {
       setState(() {
@@ -35,6 +39,34 @@ class _HomeHeaderState extends State<HomeHeader> {
             'Pengguna';
       });
     }
+
+    // 2. Sinkronkan dari server database untuk memastikan perubahan nama terupdate
+    try {
+      final syncedUser = await AuthService.syncUser();
+      if (mounted && syncedUser != null) {
+        setState(() {
+          _userName = syncedUser['name'] as String? ??
+              (syncedUser['email'] as String?)?.split('@')[0] ??
+              'Pengguna';
+        });
+      }
+    } catch (_) {}
+  }
+
+  String get _displayName {
+    if (widget.userName != null && widget.userName!.isNotEmpty) {
+      return widget.userName!;
+    }
+    return _userName;
+  }
+
+  String _getRealtimeDate() {
+    final now = DateTime.now();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    return '${now.day} ${months[now.month - 1]} ${now.year}';
   }
 
   @override
@@ -58,7 +90,7 @@ class _HomeHeaderState extends State<HomeHeader> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Halo, $_userName! 👋',
+                  'Halo, $_displayName! 👋',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -86,7 +118,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Kab. Jember • 3 Sep 2026',
+                      'Kab. Jember • ${_getRealtimeDate()}',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.8),

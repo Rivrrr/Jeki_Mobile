@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFFE91E63);
-  static const Color primaryDark = Color(0xFFC2185B);
-  static const Color primaryLight = Color(0xFFF06292);
-  static const Color accentPink = Color(0xFFFCE4EC);
+  static const Color primary = Color(0xFFFD3F92);
+  static const Color primaryDark = Color(0xFFB50060);
+  static const Color primaryLight = Color(0xFFDC2079);
+  static const Color accentPink = Color(0xFFFFF0F5);
 
   static const Color background = Color(0xFFF8F9FD);
   static const Color cardSurface = Colors.white;
@@ -20,8 +20,8 @@ class AppColors {
   static const Color error = Color(0xFFE53935);
 
   // Status Indicators
-  static const Color statusPending = Color(0xFFE91E63);
-  static const Color statusPendingBg = Color(0xFFFCE4EC);
+  static const Color statusPending = Color(0xFFFD3F92);
+  static const Color statusPendingBg = Color(0xFFFFF0F5);
   static const Color statusProcessing = Color(0xFFFF9800);
   static const Color statusProcessingBg = Color(0xFFFFF3E0);
   static const Color statusVerification = Color(0xFF2196F3);
@@ -29,10 +29,15 @@ class AppColors {
   static const Color statusCompleted = Color(0xFF4CAF50);
   static const Color statusCompletedBg = Color(0xFFE8F5E9);
 
-  // Gradient
+  // Gradient as in Figma (Stops: 0% #B50060, 60% #FD3F92, 100% #DC2079)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFD81B60), Color(0xFFEC407A)],
+    stops: [0.0, 0.6, 1.0],
+    colors: [
+      Color(0xFFB50060),
+      Color(0xFFFD3F92),
+      Color(0xFFDC2079),
+    ],
   );
 }

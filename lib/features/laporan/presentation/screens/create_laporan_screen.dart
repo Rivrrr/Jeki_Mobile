@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/services/laporan_service.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
+import 'package:infrast/features/laporan/presentation/screens/laporan_berhasil_screen.dart';
 import '../widgets/step_kategori.dart';
 import '../widgets/step_lokasi.dart';
 import '../widgets/step_foto.dart';
@@ -26,8 +27,8 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
   // Step 2: Lokasi
   int? _selectedKecamatanId;
   String? _selectedKecamatanNama;
-  final TextEditingController _alamatController    = TextEditingController();
-  final TextEditingController _detailController    = TextEditingController();
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _detailController = TextEditingController();
 
   // Step 3: Foto, GPS & Deskripsi
   final List<PhotoItem> _photos = [];
@@ -54,7 +55,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
   // ── Judul otomatis dari kategori + kecamatan ───────────────
   String get _judulOtomatis {
     final kat = _selectedKategoriNama ?? 'Laporan';
-    final kec = _selectedKecamatanNama != null ? ' - Kec. $_selectedKecamatanNama' : '';
+    final kec = _selectedKecamatanNama != null
+        ? ' - Kec. $_selectedKecamatanNama'
+        : '';
     return '$kat$kec';
   }
 
@@ -154,7 +157,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
       }
 
       // Ambil foto sampel acak berbasis bytes in-memory (100% aman untuk Web & Native)
-      final photoItem = await FotoHelper.getDevSamplePhoto(index: _photos.length);
+      final photoItem = await FotoHelper.getDevSamplePhoto(
+        index: _photos.length,
+      );
       final label = FotoHelper.getSampleLabel(_photos.length);
 
       setState(() {
@@ -164,7 +169,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('📸 Foto ${_photos.length} ditambahkan: $label [📍 $_latitude, $_longitude]'),
+            content: Text(
+              '📸 Foto ${_photos.length} ditambahkan: $label [📍 $_latitude, $_longitude]',
+            ),
             backgroundColor: const Color(0xFF16A34A),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -191,29 +198,30 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
       ].where((s) => s.isNotEmpty).join(' — ');
 
       final result = await LaporanService.createLaporan(
-        kategoriId:  _selectedKategoriId!,
+        kategoriId: _selectedKategoriId!,
         kecamatanId: _selectedKecamatanId!,
-        judul:       _judulOtomatis,
-        deskripsi:   _deskripsiController.text.trim(),
-        lokasi:      lokasiLengkap,
-        latitude:    _latitude,
-        longitude:   _longitude,
-        prioritas:   null, // Prioritas ditentukan oleh dinas / admin
-        foto:        _photos,
+        judul: _judulOtomatis,
+        deskripsi: _deskripsiController.text.trim(),
+        lokasi: lokasiLengkap,
+        latitude: _latitude,
+        longitude: _longitude,
+        prioritas: null, // Prioritas ditentukan oleh dinas / admin
+        foto: _photos,
       );
 
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
       if (result['success'] == true) {
-        final nomor = result['data']?['nomor'] ?? '';
-        Navigator.pop(context, true); // pop dengan result true
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Laporan berhasil dikirim!${nomor.isNotEmpty ? ' Nomor: $nomor' : ''}'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
+        final nomor = _extractNomorLaporan(result);
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => LaporanBerhasilScreen(
+              nomorLaporan: nomor.isNotEmpty ? nomor : '-',
+            ),
           ),
         );
       } else {
@@ -229,22 +237,64 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
   String _getStepTitle(int step) {
     switch (step) {
-      case 0: return 'Apa yang ingin dilaporkan?';
-      case 1: return 'Di mana lokasinya?';
-      case 2: return 'Foto Bukti & Deskripsi';
-      case 3: return 'Periksa Kembali';
-      default: return '';
+      case 0:
+        return 'Apa yang ingin dilaporkan?';
+      case 1:
+        return 'Di mana lokasinya?';
+      case 2:
+        return 'Foto Bukti & Deskripsi';
+      case 3:
+        return 'Periksa Kembali';
+      default:
+        return '';
     }
   }
 
   String _getStepSubtitle(int step) {
     switch (step) {
-      case 0: return 'PILIH KATEGORI';
-      case 1: return 'LOKASI';
-      case 2: return 'BUKTI & DESKRIPSI';
-      case 3: return 'KONFIRMASI';
-      default: return '';
+      case 0:
+        return 'PILIH KATEGORI';
+      case 1:
+        return 'LOKASI';
+      case 2:
+        return 'BUKTI & DESKRIPSI';
+      case 3:
+        return 'KONFIRMASI';
+      default:
+        return '';
     }
+  }
+
+  String _extractNomorLaporan(Map<String, dynamic> result) {
+    final payload = result['data'];
+    if (payload is Map<String, dynamic>) {
+      final candidates = [
+        payload['nomor'],
+        payload['data'] is Map ? (payload['data'] as Map)['nomor'] : null,
+        payload['laporan'] is Map ? (payload['laporan'] as Map)['nomor'] : null,
+      ];
+
+      for (final candidate in candidates) {
+        if (candidate != null) {
+          final text = candidate.toString().trim();
+          if (text.isNotEmpty) return text;
+        }
+      }
+    }
+
+    final rawBody = result['raw_body'];
+    if (rawBody is Map<String, dynamic>) {
+      final nested = rawBody['data'];
+      if (nested is Map<String, dynamic>) {
+        final nomor = nested['nomor']?.toString().trim();
+        if (nomor != null && nomor.isNotEmpty) return nomor;
+      }
+
+      final nomor = rawBody['nomor']?.toString().trim();
+      if (nomor != null && nomor.isNotEmpty) return nomor;
+    }
+
+    return '';
   }
 
   @override
@@ -268,7 +318,11 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: const Icon(Icons.arrow_back, size: 20, color: Color(0xFF1E293B)),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        size: 20,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -303,7 +357,10 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
             // ── Progress Bar ──────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 8.0,
+              ),
               child: _buildProgressBar(),
             ),
             const SizedBox(height: 16),
@@ -316,15 +373,16 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                 child: PageView(
                   controller: _pageController,
                   physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (index) => setState(() => _currentStep = index),
+                  onPageChanged: (index) =>
+                      setState(() => _currentStep = index),
                   children: [
                     // Step 1: Kategori
                     StepKategori(
-                      selectedKategoriId:   _selectedKategoriId,
+                      selectedKategoriId: _selectedKategoriId,
                       selectedKategoriNama: _selectedKategoriNama,
                       onSelect: (id, nama) {
                         setState(() {
-                          _selectedKategoriId   = id;
+                          _selectedKategoriId = id;
                           _selectedKategoriNama = nama;
                         });
                       },
@@ -332,15 +390,15 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
                     // Step 2: Lokasi
                     StepLokasi(
-                      alamatController:      _alamatController,
-                      detailController:      _detailController,
-                      selectedKecamatanId:   _selectedKecamatanId,
+                      alamatController: _alamatController,
+                      detailController: _detailController,
+                      selectedKecamatanId: _selectedKecamatanId,
                       selectedKecamatanNama: _selectedKecamatanNama,
-                      latitude:              _latitude,
-                      longitude:             _longitude,
+                      latitude: _latitude,
+                      longitude: _longitude,
                       onKecamatanSelected: (id, nama) {
                         setState(() {
-                          _selectedKecamatanId   = id;
+                          _selectedKecamatanId = id;
                           _selectedKecamatanNama = nama;
                           if (_latitude != null && _longitude != null) {
                             _coordinateLabel = 'Kec. $nama, Kab. Jember';
@@ -373,19 +431,19 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
                     // Step 4: Konfirmasi
                     StepKonfirmasi(
-                      kategori:    _selectedKategoriNama,
-                      kecamatan:   _selectedKecamatanNama,
-                      alamat:      _alamatController.text,
-                      photos:      _photos,
-                      deskripsi:   _deskripsiController.text,
-                      latitude:    _latitude,
-                      longitude:   _longitude,
-                      isAgreed:    _isAgreed,
+                      kategori: _selectedKategoriNama,
+                      kecamatan: _selectedKecamatanNama,
+                      alamat: _alamatController.text,
+                      photos: _photos,
+                      deskripsi: _deskripsiController.text,
+                      latitude: _latitude,
+                      longitude: _longitude,
+                      isAgreed: _isAgreed,
                       onAgreeChanged: (val) =>
                           setState(() => _isAgreed = val ?? false),
-                      onEditKategori:  () => _jumpToStep(0),
-                      onEditLokasi:    () => _jumpToStep(1),
-                      onEditFoto:      () => _jumpToStep(2),
+                      onEditKategori: () => _jumpToStep(0),
+                      onEditLokasi: () => _jumpToStep(1),
+                      onEditFoto: () => _jumpToStep(2),
                       onEditDeskripsi: () => _jumpToStep(2),
                     ),
                   ],
@@ -406,7 +464,11 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
             topRight: Radius.circular(24),
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 20,
+              offset: Offset(0, -5),
+            ),
           ],
         ),
         child: SafeArea(
@@ -417,7 +479,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                   onPressed: _isSubmitting ? null : _prevStep,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   child: const Icon(Icons.arrow_back, color: Color(0xFF64748B)),
@@ -432,7 +496,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 4,
                     shadowColor: const Color(0xFFE91E63).withValues(alpha: 0.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: _isSubmitting
                       ? const SizedBox(
@@ -444,7 +510,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                           ),
                         )
                       : Text(
-                          _currentStep == _totalSteps - 1 ? 'Kirim Laporan' : 'Lanjut',
+                          _currentStep == _totalSteps - 1
+                              ? 'Kirim Laporan'
+                              : 'Lanjut',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -470,7 +538,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
           return Expanded(
             child: Container(
               height: 4,
-              color: isCompleted ? const Color(0xFFE91E63) : const Color(0xFFFCE4EC),
+              color: isCompleted
+                  ? const Color(0xFFE91E63)
+                  : const Color(0xFFFCE4EC),
             ),
           );
         } else {
@@ -479,7 +549,9 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
             width: isActive ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFFE91E63) : const Color(0xFFE2E8F0),
+              color: isActive
+                  ? const Color(0xFFE91E63)
+                  : const Color(0xFFE2E8F0),
               borderRadius: BorderRadius.circular(4),
             ),
           );

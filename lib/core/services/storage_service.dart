@@ -7,12 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Data yang disimpan:
 /// - [_keyToken]    : Bearer token dari Laravel Sanctum
 /// - [_keyUserData] : Data user dalam format JSON string
+/// - [_keyRole]     : Role user (masyarakat / pelaksana / admin)
 class StorageService {
   StorageService._(); // prevent instantiation
 
   static const String _keyToken    = 'auth_token';
   static const String _keyUserData = 'user_data';
   static const String _keyBaseUrl  = 'custom_base_url';
+  static const String _keyRole     = 'user_role';
 
   // ─── Base URL ──────────────────────────────────────────────────────────────
 
@@ -70,12 +72,32 @@ class StorageService {
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
+  // ─── Role ──────────────────────────────────────────────────────────────────
+
+  /// Simpan role user (masyarakat / pelaksana / admin).
+  static Future<void> saveRole(String role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyRole, role);
+  }
+
+  /// Ambil role user yang tersimpan.
+  /// Fallback ke field 'role' di data user jika key dedicated belum ada.
+  static Future<String?> getRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString(_keyRole);
+    if (role != null && role.isNotEmpty) return role;
+    // Fallback: baca dari data user
+    final user = await getUser();
+    return user?['role'] as String?;
+  }
+
   // ─── Clear ─────────────────────────────────────────────────────────────────
 
-  /// Hapus semua data sesi (token + user). Dipanggil saat logout.
+  /// Hapus semua data sesi (token + user + role). Dipanggil saat logout.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyToken);
     await prefs.remove(_keyUserData);
+    await prefs.remove(_keyRole);
   }
 }

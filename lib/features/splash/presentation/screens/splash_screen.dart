@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
+import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -46,9 +47,21 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     Timer(const Duration(seconds: 3), () async {
       if (!mounted) return;
-      final loggedIn  = await AuthService.isLoggedIn;
-      if (!mounted)   return;
-      final Widget nextScreen = loggedIn ? const MainNavigation() : const LoginScreen();
+      final loggedIn = await AuthService.isLoggedIn;
+      if (!mounted)  return;
+
+      Widget nextScreen;
+      if (loggedIn) {
+        // Baca role dari storage untuk routing yang tepat
+        final role = await AuthService.getRole();
+        nextScreen = (role == 'pelaksana')
+            ? const PelaksanaHomePage()
+            : const MainNavigation();
+      } else {
+        nextScreen = const LoginScreen();
+      }
+
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
