@@ -4,13 +4,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
-import 'package:infrast/features/home/data/laporan_service.dart';
-import 'package:infrast/features/home/presentation/widgets/home_widgets.dart';
-import 'package:infrast/features/laporan/presentation/screens/create_laporan_screen.dart';
-import 'package:infrast/presentation/pages/laporan/detail/laporan_detail_page.dart';
-import 'package:infrast/presentation/pages/laporan/list/my_laporan_page.dart';
-import 'package:infrast/presentation/pages/notifikasi/notifikasi_page.dart';
-import 'package:infrast/presentation/pages/peta/peta_page.dart';
+import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/home/presentation/widgets/home_widgets.dart';
+import 'package:infrast/features/masyarakat/laporan/presentation/screens/create_laporan_screen.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/list/my_laporan_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/notifikasi/notifikasi_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/peta/peta_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -89,7 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Laporan milik saya
     if (results[0]['success'] == true) {
-      final list = List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
+      final rawMy = results[0]['data'] is Map && (results[0]['data'] as Map).containsKey('data')
+          ? results[0]['data']['data']
+          : results[0]['data'];
+      final list = (rawMy is List)
+          ? List<Map<String, dynamic>>.from(rawMy)
+          : <Map<String, dynamic>>[];
       int total = list.length;
       int diproses = list.where((r) {
         final s = (r['status'] as String? ?? '').toLowerCase();
@@ -128,7 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Laporan di sekitar (semua laporan berkoordinat)
     if (results[1]['success'] == true) {
-      final allLaporan = List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+      final rawAll = results[1]['data'] is Map && (results[1]['data'] as Map).containsKey('data')
+          ? results[1]['data']['data']
+          : results[1]['data'];
+      final allLaporan = (rawAll is List)
+          ? List<Map<String, dynamic>>.from(rawAll)
+          : <Map<String, dynamic>>[];
       setState(() {
         // Simpan semua dahulu, filter akan dilakukan setelah lokasi tersedia
         _nearbyReports = allLaporan;
@@ -212,6 +222,23 @@ class _HomeScreenState extends State<HomeScreen> {
         .then((_) => _loadReports());
   }
 
+  String? _extractPhotoUrl(dynamic fotoData) {
+    if (fotoData == null) return null;
+    if (fotoData is List && fotoData.isNotEmpty) {
+      final first = fotoData.first;
+      if (first is Map && first['url'] != null) {
+        final u = first['url'].toString().trim();
+        return u.isNotEmpty ? u : null;
+      }
+      if (first is String && first.trim().isNotEmpty) {
+        return first.trim();
+      }
+    } else if (fotoData is String && fotoData.trim().isNotEmpty) {
+      return fotoData.trim();
+    }
+    return null;
+  }
+
   String _formatDate(String? iso) {
     if (iso == null || iso.isEmpty) return '-';
     try {
@@ -255,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 48),
 
-                // 2. KPI Cards — data real
+                // 2. KPI Cards â€” data real
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
@@ -301,8 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: _openCreateLaporan,
                       ),
                       QuickActionItem(
-                        icon: Icons.file_copy_outlined,
-                        label: 'Laporan\nSaya',
+                        icon: Icons.assignment_outlined,
+                        label: 'Riwayat\nLaporan',
                         onTap: _openMyLaporan,
                       ),
                       QuickActionItem(
@@ -320,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // 4. Laporan Terbaru Saya — data real
+                // 4. Laporan Terbaru Saya â€” data real
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
@@ -403,10 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         )
                       else
                         ..._myReports.take(3).map((r) {
-                          final fotos = r['foto'] as List?;
-                          final String? imgUrl = (fotos != null && fotos.isNotEmpty)
-                              ? fotos.first['url'] as String?
-                              : null;
+                          final String? imgUrl = _extractPhotoUrl(r['foto']);
                           return RecentReportTile(
                             title: r['judul'] ?? 'Laporan Tanpa Judul',
                             location: r['lokasi'] ?? r['kecamatan']?['nama'] ?? 'Kab. Jember',
@@ -421,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 5. Laporan di Sekitar — data real dari backend
+                // 5. Laporan di Sekitar â€” data real dari backend
                 Padding(
                   padding: const EdgeInsets.only(left: 24),
                   child: Column(
@@ -496,8 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 itemCount: _nearbyReports.length,
                                 itemBuilder: (_, i) {
                                   final l = _nearbyReports[i];
-                                  final foto = l['foto'] as List?;
-                                  final imgUrl = (foto != null && foto.isNotEmpty) ? foto.first['url'] as String? : null;
+                                  final imgUrl = _extractPhotoUrl(l['foto']);
                                   final distKm = l['_distance_km'] as double?;
                                   return NearbyReportCard(
                                     title: l['judul'] ?? '-',
@@ -514,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // 6. Contribution Banner — data real
+                // 6. Contribution Banner â€” data real
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: ContributionBanner(totalSelesai: _countSelesai),
@@ -528,4 +551,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+
 

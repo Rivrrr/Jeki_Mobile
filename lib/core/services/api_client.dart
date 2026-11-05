@@ -172,15 +172,18 @@ class ApiClient {
   }
 
   // ─── Error Helpers ─────────────────────────────────────────────────────────
-  static Map<String, dynamic> _timeoutError(String url) => {
-        'success':        false,
-        'statusCode':     408,
-        'isTimeout':      true,
-        'isNetworkError': true,
-        'url':            url,
-        'data':           null,
-        'message':        'Waktu koneksi ke server habis (Timeout) saat menghubungi $url. Pastikan server backend aktif dan IP sudah sesuai.',
-      };
+  static Map<String, dynamic> _timeoutError(String url) {
+    ApiConstants.resetCache();
+    return {
+      'success':        false,
+      'statusCode':     408,
+      'isTimeout':      true,
+      'isNetworkError': true,
+      'url':            url,
+      'data':           null,
+      'message':        'Waktu koneksi ke server habis (Timeout) saat menghubungi $url. Pastikan server backend aktif dan IP sudah sesuai.',
+    };
+  }
 
   static Map<String, dynamic> _networkOrUnknownError(Object e, String url) {
     final errStr = e.toString().toLowerCase();
@@ -189,6 +192,10 @@ class ApiClient {
                       errStr.contains('connection refused') ||
                       errStr.contains('failed to fetch') ||
                       errStr.contains('xmlhttprequest');
+
+    if (isConnErr) {
+      ApiConstants.resetCache();
+    }
 
     return {
       'success':        false,

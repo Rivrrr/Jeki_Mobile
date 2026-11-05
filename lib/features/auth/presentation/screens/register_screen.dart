@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:infrast/core/constants/app_colors.dart';
+import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
-import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
 import 'package:infrast/presentation/widgets/animated_blob_background.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -215,7 +216,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               clipper: CustomHeaderClipper(),
               child: Container(
                 width: double.infinity,
-                height: 270,
+                height: AppSizes.headerHeight(context),
                 decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                 ),
@@ -226,8 +227,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            width: 66,
-                            height: 66,
+                            width: AppSizes.responsiveWidth(context, 66),
+                            height: AppSizes.responsiveWidth(context, 66),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(22),
                               color: Colors.white.withValues(alpha: 0.22),
@@ -242,29 +243,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.home_rounded,
-                                color: Colors.white, size: 34),
+                            child: Icon(
+                              Icons.home_rounded,
+                              color: Colors.white,
+                              size: AppSizes.responsiveWidth(context, 34),
+                            ),
                           ),
-                          const SizedBox(height: 14),
-                          const Text(
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 14)),
+                          Text(
                             'Buat Akun Baru',
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: AppSizes.responsiveWidth(context, 24),
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                               letterSpacing: 0.3,
                             ),
                           ),
-                          const SizedBox(height: 5),
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 5)),
                           Text(
                             'Masuk untuk melaporkan infrastruktur',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: AppSizes.responsiveWidth(context, 13),
                               color: Colors.white.withValues(alpha: 0.88),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 14)),
                         ],
                       ),
                     ),
@@ -434,11 +438,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Google SSO Button (non-fungsi — segera hadir)
+                      // Google SSO Button (non-fungsi â€” segera hadir)
                       Tooltip(
                         message: 'Segera hadir',
                         child: OutlinedButton(
-                          onPressed: null, // Dinonaktifkan — belum tersedia di backend
+                          onPressed: null, // Dinonaktifkan â€” belum tersedia di backend
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -529,3 +533,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

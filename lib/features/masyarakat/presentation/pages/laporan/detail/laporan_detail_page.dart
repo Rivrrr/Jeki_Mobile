@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
 
 class LaporanDetailPage extends StatefulWidget {
   final int laporanId;
@@ -27,8 +27,11 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
     final result = await LaporanService.fetchLaporanDetail(widget.laporanId);
     if (!mounted) return;
     if (result['success'] == true) {
+      final raw = result['data'] is Map && (result['data'] as Map).containsKey('data')
+          ? result['data']['data']
+          : result['data'];
       setState(() {
-        _laporan = Map<String, dynamic>.from(result['data'] ?? {});
+        _laporan = (raw is Map) ? Map<String, dynamic>.from(raw) : {};
         _loading = false;
       });
     } else {
@@ -122,7 +125,7 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
-            child: const Text('✓ Setuju Selesai'),
+            child: const Text('âœ“ Setuju Selesai'),
           ),
         ],
       ),
@@ -635,3 +638,4 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
     }
   }
 }
+

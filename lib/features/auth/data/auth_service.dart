@@ -46,10 +46,7 @@ class AuthService {
   ) async {
     final response = await ApiClient.post(
       '/login',
-      body: {
-        'email': email.trim().toLowerCase(),
-        'password': password.trim(),
-      },
+      body: {'email': email.trim().toLowerCase(), 'password': password.trim()},
       requiresAuth: false,
     );
 
@@ -63,7 +60,8 @@ class AuthService {
           'success': false,
           'role_mismatch': true,
           'user_role': role,
-          'message': 'Akun Anda ($role) tidak dapat menggunakan aplikasi mobile JEKI. '
+          'message':
+              'Akun Anda ($role) tidak dapat menggunakan aplikasi mobile JEKI. '
               'Akses Web Dashboard di browser: http://localhost:8000/login',
         };
       }
@@ -85,21 +83,33 @@ class AuthService {
     }
 
     return {
-      'success':        false,
-      'message':        response['message'] ?? 'Gagal masuk. Periksa email dan kata sandi Anda.',
-      'role_mismatch':  response['role_mismatch'] == true,
-      'user_role':      response['user_role'],
-      'expected_role':  response['expected_role'],
+      'success': false,
+      'message':
+          response['message'] ??
+          'Gagal masuk. Periksa email dan kata sandi Anda.',
+      'role_mismatch': response['role_mismatch'] == true,
+      'user_role': response['user_role'],
+      'expected_role': response['expected_role'],
       'isNetworkError': response['isNetworkError'] == true,
-      'statusCode':     response['statusCode'],
-      'url':            response['url'],
+      'statusCode': response['statusCode'],
+      'url': response['url'],
     };
   }
 
   /// Cek kesehatan / status koneksi server Laravel.
   static Future<Map<String, dynamic>> checkHealth([String? customUrl]) async {
-    final targetUrl = customUrl != null
-        ? ApiConstants.endpoint('/health', customUrl)
+    final base = customUrl?.trim();
+    final canConnect = await ApiConstants.canConnect(base);
+
+    if (canConnect) {
+      return {
+        'success': true,
+        'message': 'Server terjangkau dari perangkat ini.',
+      };
+    }
+
+    final targetUrl = base != null && base.isNotEmpty
+        ? ApiConstants.endpoint('/health', base)
         : '/health';
     return await ApiClient.get(targetUrl, requiresAuth: false);
   }
@@ -124,10 +134,10 @@ class AuthService {
     final response = await ApiClient.post(
       ApiConstants.register,
       body: {
-        'name':     name,
-        'email':    email,
+        'name': name,
+        'email': email,
         'password': password,
-        'no_hp':    phone,
+        'no_hp': phone,
       },
       requiresAuth: false, // Belum ada token saat register
     );
@@ -146,15 +156,15 @@ class AuthService {
       }
 
       return {
-        'success':   true,
-        'message':   'Pendaftaran berhasil!',
+        'success': true,
+        'message': 'Pendaftaran berhasil!',
         'autoLogin': true, // Laravel selalu langsung login setelah register
       };
     }
 
     return {
-      'success':   false,
-      'message':   response['message'] ?? 'Pendaftaran gagal. Silakan coba lagi.',
+      'success': false,
+      'message': response['message'] ?? 'Pendaftaran gagal. Silakan coba lagi.',
       'autoLogin': false,
     };
   }

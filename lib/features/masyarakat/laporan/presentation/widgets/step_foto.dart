@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 
 class StepFoto extends StatelessWidget {
-  final List<PhotoItem> photos; // list of PhotoItem (in-memory bytes)
+  final List<PhotoItem> photos; // list of PhotoItem (in-memory bytes dengan watermark)
   final VoidCallback onAddPhoto;
   final Function(int) onRemovePhoto;
   final TextEditingController deskripsiController;
@@ -23,6 +23,9 @@ class StepFoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMinPhotoMet = photos.length >= 3;
+    final int remainingPhotos = 3 - photos.length;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 24),
@@ -33,9 +36,12 @@ class StepFoto extends StatelessWidget {
             text: const TextSpan(
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.5),
               children: [
-                TextSpan(text: 'Tambahkan minimal '),
-                TextSpan(text: '1 hingga 3 foto', style: TextStyle(color: Color(0xFFE91E63), fontWeight: FontWeight.bold)),
-                TextSpan(text: ' bukti kerusakan langsung dan deskripsikan kondisinya.'),
+                TextSpan(text: 'Wajib mengambil '),
+                TextSpan(
+                  text: 'minimal 3 foto',
+                  style: TextStyle(color: Color(0xFFE91E63), fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: ' bukti kerusakan langsung dengan kamera di lokasi (Watermark otomatis GPS & WIB).'),
               ],
             ),
           ),
@@ -65,7 +71,7 @@ class StepFoto extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'GPS Aktif — Tagging Lokasi Otomatis',
+                        'Watermark Otomatis Aktif — GPS & Waktu WIB',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -75,8 +81,8 @@ class StepFoto extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         latitude != null && longitude != null
-                            ? '📍 Terkunci: $latitude, $longitude (${coordinateLabel ?? "Kab. Jember"})'
-                            : 'Koordinat GPS akan otomatis tersemat ke foto saat tombol ditekan.',
+                            ? '📍 Terkunci: ${latitude!.toStringAsFixed(6)}, ${longitude!.toStringAsFixed(6)} (${coordinateLabel ?? "Kab. Jember"})'
+                            : 'Koordinat GPS dan waktu WIB otomatis terstempel permanen pada setiap foto.',
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF15803D),
@@ -90,8 +96,8 @@ class StepFoto extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // Direct Camera Capture Button (Galeri Dihapus)
-          if (photos.length < 3)
+          // Direct Camera Capture Button (Hanya Kamera Langsung, Galeri Ditiadakan)
+          if (photos.length < 5)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -99,12 +105,14 @@ class StepFoto extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: const Color(0xFFE91E63).withValues(alpha: 0.3),
+                  color: isMinPhotoMet
+                      ? const Color(0xFF16A34A).withOpacity(0.3)
+                      : const Color(0xFFE91E63).withOpacity(0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
+                    color: Colors.black.withOpacity(0.02),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -117,55 +125,69 @@ class StepFoto extends StatelessWidget {
                     child: Column(
                       children: [
                         Container(
-                          width: 64,
-                          height: 64,
+                          width: 68,
+                          height: 68,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE91E63), Color(0xFFFF4081)],
+                            gradient: LinearGradient(
+                              colors: isMinPhotoMet
+                                  ? [const Color(0xFF16A34A), const Color(0xFF22C55E)]
+                                  : [const Color(0xFFE91E63), const Color(0xFFFF4081)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFE91E63).withValues(alpha: 0.35),
-                                blurRadius: 12,
+                                color: (isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE91E63))
+                                    .withOpacity(0.35),
+                                blurRadius: 14,
                                 offset: const Offset(0, 6),
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 30),
+                          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 32),
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Ambil Foto Bukti (Kamera)',
+                        const SizedBox(height: 12),
+                        Text(
+                          photos.isEmpty
+                              ? 'Buka Kamera & Ambil Foto 1'
+                              : 'Buka Kamera (Foto ke-${photos.length + 1})',
                           style: TextStyle(
-                            color: Color(0xFFE91E63),
+                            color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE91E63),
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 14.5,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF7ED),
+                      color: isMinPhotoMet ? const Color(0xFFF0FDF4) : const Color(0xFFFFF1F2),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFFFEDD5)),
+                      border: Border.all(
+                        color: isMinPhotoMet ? const Color(0xFFBBF7D0) : const Color(0xFFFECDD3),
+                      ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.bolt, color: Color(0xFFEA580C), size: 14),
-                        SizedBox(width: 4),
+                        Icon(
+                          isMinPhotoMet ? Icons.check_circle_rounded : Icons.photo_camera_rounded,
+                          color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 5),
                         Flexible(
                           child: Text(
-                            'Mode Dev: Foto & GPS Otomatis',
+                            isMinPhotoMet
+                                ? 'Syarat minimal 3 foto terpenuhi (${photos.length}/5 foto)'
+                                : 'Wajib memfoto langsung di lokasi (Kurang $remainingPhotos foto lagi)',
                             style: TextStyle(
-                              color: Color(0xFFC2410C),
+                              color: isMinPhotoMet ? const Color(0xFF15803D) : const Color(0xFFBE123C),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -175,9 +197,9 @@ class StepFoto extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   const Text(
-                    'Foto wajib diambil langsung di lapangan (Maks. 3 foto). Pilihan dari galeri tidak diperbolehkan.',
+                    'Foto wajib diambil langsung menggunakan kamera di lokasi. Pilihan dari galeri tidak diperbolehkan demi keaslian laporan.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFF94A3B8),
@@ -187,16 +209,16 @@ class StepFoto extends StatelessWidget {
                 ],
               ),
             ),
-          
+
           if (photos.isNotEmpty) ...[
             const SizedBox(height: 20),
-            
+
             // Photos List Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Foto Bukti Ditambahkan',
+                  'Foto Bukti Lapangan',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -206,23 +228,39 @@ class StepFoto extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
+                    color: isMinPhotoMet ? const Color(0xFFF0FDF4) : const Color(0xFFFFF1F2),
                     borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${photos.length}/3',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFEA580C),
+                    border: Border.all(
+                      color: isMinPhotoMet ? const Color(0xFFBBF7D0) : const Color(0xFFFECDD3),
                     ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isMinPhotoMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                        size: 13,
+                        color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isMinPhotoMet
+                            ? '${photos.length}/5 (Min. 3 Terpenuhi ✓)'
+                            : '${photos.length}/3 Foto (Kurang $remainingPhotos lagi)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Photo thumbnails
+            // Photo thumbnails dengan preview watermark
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -233,8 +271,8 @@ class StepFoto extends StatelessWidget {
                       child: Stack(
                         children: [
                           Container(
-                            width: 100,
-                            height: 100,
+                            width: 110,
+                            height: 110,
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(16),
@@ -251,6 +289,7 @@ class StepFoto extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // Tombol Hapus Foto
                           Positioned(
                             top: 4,
                             right: 4,
@@ -273,6 +312,34 @@ class StepFoto extends StatelessWidget {
                               ),
                             ),
                           ),
+                          // Badge Watermark Terpasang
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16A34A).withOpacity(0.85),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified_rounded, color: Colors.white, size: 9),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'WIB ✓',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Label Foto dan Koordinat
                           Positioned(
                             bottom: 6,
                             left: 6,
@@ -280,7 +347,7 @@ class StepFoto extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.65),
+                                color: Colors.black.withOpacity(0.7),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Column(
@@ -312,14 +379,14 @@ class StepFoto extends StatelessWidget {
                         ],
                       ),
                     ),
-                    
-                  // Add more placeholder button
-                  if (photos.length < 3)
+
+                  // Add more placeholder button jika belum mencapai 5 foto
+                  if (photos.length < 5)
                     GestureDetector(
                       onTap: onAddPhoto,
                       child: Container(
-                        width: 100,
-                        height: 100,
+                        width: 110,
+                        height: 110,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -328,14 +395,14 @@ class StepFoto extends StatelessWidget {
                             style: BorderStyle.solid,
                           ),
                         ),
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo_outlined, color: Color(0xFFE91E63), size: 26),
-                            SizedBox(height: 4),
+                            const Icon(Icons.add_a_photo_outlined, color: Color(0xFFE91E63), size: 28),
+                            const SizedBox(height: 4),
                             Text(
-                              'Tambah',
-                              style: TextStyle(
+                              'Foto ke-${photos.length + 1}',
+                              style: const TextStyle(
                                 color: Color(0xFFE91E63),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -410,8 +477,8 @@ class StepFoto extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
-          
-          // Warning Card
+
+          // Ketentuan Validasi Lapangan Card
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -438,7 +505,7 @@ class StepFoto extends StatelessWidget {
                       ),
                       SizedBox(height: 3),
                       Text(
-                        'Foto bukti harus diambil langsung di lokasi tanpa perantara galeri. GPS otomatis tersemat demi menjamin keaslian laporan.',
+                        'Wajib mengambil minimal 3 foto bukti kerusakan langsung di lokasi kejadian. Pilihan dari galeri tidak diperbolehkan. Sistem otomatis menyematkan koordinat lokasi dan waktu WIB di foto.',
                         style: TextStyle(
                           fontSize: 11,
                           color: Color(0xFFB45309),

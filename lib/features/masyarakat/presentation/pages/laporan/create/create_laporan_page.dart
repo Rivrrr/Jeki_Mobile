@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
 
 class CreateLaporanPage extends StatefulWidget {
   const CreateLaporanPage({super.key});
@@ -13,11 +13,11 @@ class CreateLaporanPage extends StatefulWidget {
 
 class _CreateLaporanPageState extends State<CreateLaporanPage>
     with SingleTickerProviderStateMixin {
-  // ── Stepper ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Stepper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   int _currentStep = 0;
   final PageController _pageCtrl = PageController();
 
-  // ── Form Data ────────────────────────────────────────────────────────────────
+  // â”€â”€ Form Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final _judulCtrl    = TextEditingController();
   final _deskCtrl     = TextEditingController();
   final _lokasiCtrl   = TextEditingController();
@@ -36,7 +36,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
 
   bool _submitting = false;
 
-  // ── Form Keys ────────────────────────────────────────────────────────────────
+  // â”€â”€ Form Keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   final _step1Key = GlobalKey<FormState>();
   final _step2Key = GlobalKey<FormState>();
 
@@ -60,9 +60,24 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     final wRes = await LaporanService.fetchKecamatan();
     if (!mounted) return;
     setState(() {
+      int jalanId = 1;
+      int jembatanId = 2;
       if (kRes['success'] == true) {
-        _kategoriList = List<Map<String, dynamic>>.from(kRes['data'] ?? []);
+        final raw = kRes['data']?['data'] ?? kRes['data'] ?? [];
+        final list = List<Map<String, dynamic>>.from(raw);
+        for (final item in list) {
+          final nama = (item['nama'] as String? ?? '').toLowerCase();
+          final id = item['id'] as int?;
+          if (id != null) {
+            if (nama.contains('jalan')) jalanId = id;
+            if (nama.contains('jembatan')) jembatanId = id;
+          }
+        }
       }
+      _kategoriList = [
+        {'id': jalanId, 'nama': 'Jalan Berlubang atau Rusak'},
+        {'id': jembatanId, 'nama': 'Jembatan Rusak atau Retak'},
+      ];
       if (wRes['success'] == true) {
         _kecamatanList = List<Map<String, dynamic>>.from(wRes['data'] ?? []);
       }
@@ -79,30 +94,15 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  Future<void> _pickPhoto() async {
-    if (_selectedPhotos.length >= 3) {
-      _showSnack('Maksimal 3 foto dapat diunggah.', isError: true);
-      return;
-    }
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-      maxWidth: 1280,
-    );
-    if (picked != null && mounted) {
-      setState(() => _selectedPhotos.add(picked));
-    }
-  }
-
   Future<void> _takePhoto() async {
-    if (_selectedPhotos.length >= 3) {
-      _showSnack('Maksimal 3 foto dapat diunggah.', isError: true);
+    if (_selectedPhotos.length >= 5) {
+      _showSnack('Maksimal 5 foto dapat diunggah.', isError: true);
       return;
     }
     final picked = await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 75,
-      maxWidth: 1280,
+      imageQuality: 85,
+      maxWidth: 1920,
     );
     if (picked != null && mounted) {
       setState(() => _selectedPhotos.add(picked));
@@ -344,7 +344,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  // ── Step 1: Informasi Laporan ──────────────────────────────────────────────
+  // â”€â”€ Step 1: Informasi Laporan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildStep1() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -444,7 +444,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  // ── Step 2: Lokasi ──────────────────────────────────────────────────────────
+  // â”€â”€ Step 2: Lokasi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildStep2() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -520,7 +520,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  // ── Step 3: Foto ──────────────────────────────────────────────────────────
+  // â”€â”€ Step 3: Foto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildStep3() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -534,28 +534,16 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          // Tombol tambah foto
-          if (_selectedPhotos.length < 3)
-            Row(
-              children: [
-                Expanded(
-                  child: _photoSourceButton(
-                    icon: Icons.photo_library_rounded,
-                    label: 'Dari Galeri',
-                    onTap: _pickPhoto,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _photoSourceButton(
-                    icon: Icons.camera_alt_rounded,
-                    label: 'Ambil Foto',
-                    onTap: _takePhoto,
-                    color: const Color(0xFF0288D1),
-                  ),
-                ),
-              ],
+          // Tombol ambil foto kamera langsung (Galeri ditiadakan)
+          if (_selectedPhotos.length < 5)
+            SizedBox(
+              width: double.infinity,
+              child: _photoSourceButton(
+                icon: Icons.camera_alt_rounded,
+                label: 'Ambil Foto Kerusakan Langsung di Lokasi',
+                onTap: _takePhoto,
+                color: AppColors.primary,
+              ),
             ),
           const SizedBox(height: 16),
           // Grid foto terpilih
@@ -684,7 +672,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  // ── Bottom Navigation Buttons ─────────────────────────────────────────────
+  // â”€â”€ Bottom Navigation Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildBottomNav() {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -768,7 +756,7 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     );
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _sectionLabel(String text, {bool isRequired = false}) {
     return Row(
       children: [
@@ -820,3 +808,4 @@ class _CreateLaporanPageState extends State<CreateLaporanPage>
     return Icons.report_problem_outlined;
   }
 }
+

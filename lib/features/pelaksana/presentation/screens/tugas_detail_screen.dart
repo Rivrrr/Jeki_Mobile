@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 import 'package:infrast/features/pelaksana/data/tugas_service.dart';
 
@@ -134,7 +135,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
           ],
         ),
         content: SizedBox(
-          width: 480,
+          width: (AppSizes.responsiveWidth(context, 480)).clamp(0.0, MediaQuery.sizeOf(context).width - 32),
           child: SingleChildScrollView(
             child: Form(
               key: formKey,
@@ -454,7 +455,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF16A34A).withOpacity(0.12),
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.verified_outlined, color: Color(0xFF16A34A), size: 24),
@@ -469,7 +470,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
               ],
             ),
             content: SizedBox(
-              width: 440,
+              width: (AppSizes.responsiveWidth(context, 440)).clamp(0.0, MediaQuery.sizeOf(context).width - 32),
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
@@ -613,7 +614,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.65),
+                                          color: Colors.black.withValues(alpha: 0.65),
                                           borderRadius: BorderRadius.circular(20),
                                         ),
                                         child: const Row(

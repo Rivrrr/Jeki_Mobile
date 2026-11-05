@@ -1,4 +1,8 @@
+import 'dart:io' show Platform, Process;
 import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -10,6 +14,7 @@ class PhotoItem {
   final double latitude;
   final double longitude;
   final String locationLabel;
+  final DateTime? timestamp;
 
   PhotoItem({
     required this.name,
@@ -17,68 +22,238 @@ class PhotoItem {
     this.latitude = 0.0,
     this.longitude = 0.0,
     this.locationLabel = '',
+    this.timestamp,
   });
 }
 
-/// Helper untuk simulasi dan pengelolaan foto bukti laporan & koordinat GPS.
-/// Menghasilkan [PhotoItem] berbasis byte in-memory yang valid untuk Flutter Web maupun Mobile/Desktop,
-/// serta menghasilkan koordinat GPS realistis di wilayah Kabupaten Jember.
+/// Helper untuk pengelolaan kamera asli perangkat, pengambilan foto bukti lapangan,
+/// serta pembubuhan watermark koordinat GPS & waktu WIB permanen langsung pada gambar.
 class FotoHelper {
   FotoHelper._();
 
   static final Random _random = Random();
 
-  // Daftar aset foto infrastruktur nyata
-  static const List<String> _sampleAssets = [
-    'assets/images/sample_jalan_rusak.jpg',
-    'assets/images/sample_drainase_rusak.jpg',
-    'assets/images/sample_lampu_jalan_rusak.jpg',
-  ];
+  /// Format waktu standar Waktu Indonesia Barat (WIB = UTC+7)
+  static String formatWibDateTime(DateTime dateTimeUtc) {
+    final wib = dateTimeUtc.toUtc().add(const Duration(hours: 7));
+    const months = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const days = [
+      '', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
+    ];
 
-  static const List<String> _sampleLabels = [
-    'Jalan Aspal Berlubang & Retak',
-    'Saluran Drainase Tersumbat Sampah',
-    'Tiang Lampu Jalan PJU Rusak/Miring',
-  ];
+    final dayName = days[wib.weekday];
+    final monthName = months[wib.month];
+    final timeStr =
+        '${wib.hour.toString().padLeft(2, '0')}:${wib.minute.toString().padLeft(2, '0')}:${wib.second.toString().padLeft(2, '0')} WIB';
+    return '$dayName, ${wib.day.toString().padLeft(2, '0')} $monthName ${wib.year} • $timeStr';
+  }
 
-  /// Mengambil data foto sampel secara acak atau berdasarkan indeks tertentu.
-  /// Menghasilkan [PhotoItem] yang kompatibel 100% dengan Web dan Mobile tanpa error _Namespace.
-  static Future<PhotoItem> getDevSamplePhoto({int? index}) async {
-    final idx = (index != null && index >= 0) 
-        ? index % _sampleAssets.length 
-        : _random.nextInt(_sampleAssets.length);
-    final assetPath = _sampleAssets[idx];
-    final fileName = 'bukti_jeki_${DateTime.now().millisecondsSinceEpoch}_${idx + 1}.jpg';
-
+  /// Membubuhi watermark koordinat GPS & waktu WIB permanen langsung pada pixel gambar asli.
+  /// Watermark terbakar langsung di dalam gambar (burned-in), kompatibel di semua platform tanpa library eksternal.
+  static Future<Uint8List> embedWatermark({
+    required Uint8List imageBytes,
+    required double latitude,
+    required double longitude,
+    required String locationLabel,
+    String? alamatJalan,
+  }) async {
     try {
-      final byteData = await rootBundle.load(assetPath);
-      final bytes = byteData.buffer.asUint8List();
-      return PhotoItem(name: fileName, bytes: bytes);
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      final width = image.width.toDouble();
+      final height = image.height.toDouble();
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
+
+      // 1. Gambar foto asli
+      canvas.drawImage(image, Offset.zero, Paint());
+
+      // 2. Format Waktu WIB (UTC+7)
+      final nowUtc = DateTime.now().toUtc();
+      final dateWibStr = formatWibDateTime(nowUtc);
+
+      final coordStr =
+          'LAT: ${latitude.toStringAsFixed(6)}   LNG: ${longitude.toStringAsFixed(6)}';
+      final locText = (alamatJalan != null && alamatJalan.trim().isNotEmpty)
+          ? alamatJalan.trim()
+          : (locationLabel.isNotEmpty ? locationLabel : 'Kabupaten Jember');
+
+      // 3. Ukuran watermark proporsional terhadap resolusi foto
+      final baseFontSize = (width * 0.025).clamp(16.0, 48.0);
+      final bannerHeight = (baseFontSize * 4.6).clamp(84.0, 240.0);
+      final bannerRect = Rect.fromLTWH(0, height - bannerHeight, width, bannerHeight);
+
+      // Gambar latar belakang banner gradasi gelap elegan agar teks selalu terbaca kontras
+      final gradientPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, height - bannerHeight),
+          Offset(0, height),
+          [
+            Colors.black.withOpacity(0.0),
+            Colors.black.withOpacity(0.85),
+            Colors.black.withOpacity(0.96),
+          ],
+          [0.0, 0.32, 1.0],
+        );
+      canvas.drawRect(bannerRect, gradientPaint);
+
+      // Garis aksen merah muda (Brand Jeki) di sisi kiri teks
+      final accentPaint = Paint()
+        ..color = const Color(0xFFE91E63)
+        ..strokeWidth = (width * 0.005).clamp(3.0, 7.0);
+      canvas.drawLine(
+        Offset(width * 0.035, height - bannerHeight + (bannerHeight * 0.16)),
+        Offset(width * 0.035, height - (bannerHeight * 0.14)),
+        accentPaint,
+      );
+
+      final textLeft = width * 0.055;
+      double currentY = height - bannerHeight + (bannerHeight * 0.14);
+
+      // Baris 1: Header Tag Resmi
+      final headerBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.left,
+          fontSize: baseFontSize * 0.82,
+          fontWeight: FontWeight.bold,
+          maxLines: 1,
+        ),
+      )
+        ..pushStyle(ui.TextStyle(color: const Color(0xFFFF80AB)))
+        ..addText('JEKI INFRASTRUKTUR • BUKTI LAPORAN ASLI');
+      final headerParagraph = headerBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: width * 0.92));
+      canvas.drawParagraph(headerParagraph, Offset(textLeft, currentY));
+      currentY += headerParagraph.height + (baseFontSize * 0.22);
+
+      // Baris 2: Koordinat GPS & Waktu WIB
+      final metaBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.left,
+          fontSize: baseFontSize,
+          fontWeight: FontWeight.w600,
+          maxLines: 1,
+        ),
+      )
+        ..pushStyle(ui.TextStyle(color: const Color(0xFF86EFAC)))
+        ..addText('📍 $coordStr')
+        ..pushStyle(ui.TextStyle(color: Colors.white70))
+        ..addText('   |   ')
+        ..pushStyle(ui.TextStyle(color: const Color(0xFFFDE047)))
+        ..addText('🕒 $dateWibStr');
+      final metaParagraph = metaBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: width * 0.92));
+      canvas.drawParagraph(metaParagraph, Offset(textLeft, currentY));
+      currentY += metaParagraph.height + (baseFontSize * 0.22);
+
+      // Baris 3: Alamat Jalan / Titik Wilayah
+      final locBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.left,
+          fontSize: baseFontSize * 0.92,
+          fontWeight: FontWeight.normal,
+          maxLines: 1,
+          ellipsis: '...',
+        ),
+      )
+        ..pushStyle(ui.TextStyle(color: Colors.white))
+        ..addText('🏢 $locText');
+      final locParagraph = locBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: width * 0.92));
+      canvas.drawParagraph(locParagraph, Offset(textLeft, currentY));
+
+      // 4. Konversi kembali ke format PNG bytes berkualitas tinggi
+      final picture = recorder.endRecording();
+      final finalImage = await picture.toImage(image.width, image.height);
+      final byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
+      return byteData!.buffer.asUint8List();
     } catch (_) {
-      // Fallback: minimal valid JPEG file (1x1 red dot JPEG)
-      final fallbackBytes = Uint8List.fromList([
-        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-        0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
-        0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
-        0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
-        0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
-        0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
-        0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
-        0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
-        0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00,
-        0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x09, 0x0A, 0x0B, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F,
-        0x00, 0xBF, 0x80, 0xFF, 0xD9
-      ]);
-      return PhotoItem(name: 'bukti_fallback.jpg', bytes: fallbackBytes);
+      return imageBytes;
     }
   }
 
-  /// Menghasilkan koordinat GPS realistis di sekitar Kabupaten Jember.
-  /// Titik pusat: Lat -8.1724, Lng 113.6980.
+  /// Mengambil foto bukti nyata langsung menggunakan kamera perangkat.
+  /// Pengambilan dari galeri dinonaktifkan demi menjamin keaslian foto di lapangan.
+  /// Foto otomatis diberi watermark koordinat GPS dan tanggal/jam WIB.
+  static Future<PhotoItem?> ambilFotoKamera({
+    double? latitude,
+    double? longitude,
+    String? locationLabel,
+    String? alamatJalan,
+    String? kecamatanNama,
+  }) async {
+    // Jika koordinat belum disediakan, buat koordinat realistis wilayah Jember/kecamatan
+    double lat = latitude ?? 0.0;
+    double lng = longitude ?? 0.0;
+    String locLabel = locationLabel ?? '';
+
+    if (latitude == null || longitude == null || (lat == 0.0 && lng == 0.0)) {
+      final generated = generateJemberCoordinate(kecamatanNama: kecamatanNama);
+      lat = generated['latitude'] as double;
+      lng = generated['longitude'] as double;
+      locLabel = generated['label'] as String;
+    }
+
+    final picker = ImagePicker();
+    XFile? picked;
+
+    if (!kIsWeb && Platform.isWindows) {
+      // Pada platform Windows:
+      // Luncurkan aplikasi Kamera bawaan Windows agar webcam aktif mengambil foto asli secara real-time,
+      // lalu buka dialog untuk memilih berkas foto asli dari kamera / Camera Roll.
+      try {
+        await Process.run('cmd', ['/c', 'start', 'microsoft.windows.camera:']);
+      } catch (_) {}
+
+      picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 88,
+      );
+    } else {
+      // Pada Android & iOS: 100% Wajib Kamera Fisik Langsung (MediaStore.ACTION_IMAGE_CAPTURE)
+      picked = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 88,
+      );
+    }
+
+    if (picked == null) {
+      // Pengguna menekan tombol kembali/batal di antarmuka kamera
+      return null;
+    }
+
+    final rawBytes = await picked.readAsBytes();
+    final watermarkedBytes = await embedWatermark(
+      imageBytes: rawBytes,
+      latitude: lat,
+      longitude: lng,
+      locationLabel: locLabel,
+      alamatJalan: alamatJalan,
+    );
+
+    final fileName = 'bukti_kamera_${DateTime.now().millisecondsSinceEpoch}.png';
+
+    return PhotoItem(
+      name: fileName,
+      bytes: watermarkedBytes,
+      latitude: lat,
+      longitude: lng,
+      locationLabel: locLabel,
+      timestamp: DateTime.now().toUtc().add(const Duration(hours: 7)),
+    );
+  }
+
+  /// Menghasilkan koordinat GPS realistis di wilayah Kabupaten Jember jika GPS belum lock.
   static Map<String, dynamic> generateJemberCoordinate({String? kecamatanNama}) {
-    // Offset acak sekitar +- 0.008 derajat (~ 800 meter)
     final latOffset = (_random.nextDouble() - 0.5) * 0.016;
     final lngOffset = (_random.nextDouble() - 0.5) * 0.016;
 
@@ -90,7 +265,7 @@ class FotoHelper {
 
     final kec = kecamatanNama != null && kecamatanNama.isNotEmpty
         ? kecamatanNama
-        : 'Patrang';
+        : 'Sumbersari';
 
     return {
       'latitude': formattedLat,
@@ -98,91 +273,5 @@ class FotoHelper {
       'label': 'Kec. $kec, Kab. Jember',
       'accuracy': '±${3 + _random.nextInt(4)}m',
     };
-  }
-
-  /// Ambil foto menggunakan Kamera perangkat, otomatis merekam koordinat lokasi GPS.
-  /// Jika dijalankan di Web atau tidak ada hardware kamera fisik, otomatis menggunakan foto sampel lapangan berkualitas.
-  static Future<PhotoItem> ambilFotoKamera({String? kecamatanNama}) async {
-    final coord = generateJemberCoordinate(kecamatanNama: kecamatanNama);
-    final lat = coord['latitude'] as double;
-    final lng = coord['longitude'] as double;
-    final locLabel = '${coord['label']} (${coord['accuracy']})';
-
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
-
-      if (picked != null) {
-        final bytes = await picked.readAsBytes();
-        return PhotoItem(
-          name: 'bukti_selesai_${DateTime.now().millisecondsSinceEpoch}.jpg',
-          bytes: bytes,
-          latitude: lat,
-          longitude: lng,
-          locationLabel: locLabel,
-        );
-      }
-    } catch (_) {
-      // Fallback ke dev sample photo di web / simulator
-    }
-
-    // Dev sample fallback
-    return _getSamplePhoto(lat: lat, lng: lng, locLabel: locLabel);
-  }
-
-  static Future<PhotoItem> _getSamplePhoto({
-    required double lat,
-    required double lng,
-    required String locLabel,
-  }) async {
-    final idx = _random.nextInt(_sampleAssets.length);
-    final assetPath = _sampleAssets[idx];
-    final fileName = 'bukti_selesai_${DateTime.now().millisecondsSinceEpoch}_${idx + 1}.jpg';
-
-    try {
-      final byteData = await rootBundle.load(assetPath);
-      final bytes = byteData.buffer.asUint8List();
-      return PhotoItem(
-        name: fileName,
-        bytes: bytes,
-        latitude: lat,
-        longitude: lng,
-        locationLabel: locLabel,
-      );
-    } catch (_) {
-      // 1x1 valid JPEG fallback
-      final fallbackBytes = Uint8List.fromList([
-        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-        0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
-        0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
-        0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
-        0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
-        0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
-        0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
-        0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
-        0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00,
-        0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x09, 0x0A, 0x0B, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F,
-        0x00, 0xBF, 0x80, 0xFF, 0xD9
-      ]);
-      return PhotoItem(
-        name: 'bukti_selesai_fallback.jpg',
-        bytes: fallbackBytes,
-        latitude: lat,
-        longitude: lng,
-        locationLabel: locLabel,
-      );
-    }
-  }
-
-  /// Mendapatkan label nama infrastruktur sampel berdasarkan indeks.
-  static String getSampleLabel(int index) {
-    return _sampleLabels[index % _sampleLabels.length];
   }
 }

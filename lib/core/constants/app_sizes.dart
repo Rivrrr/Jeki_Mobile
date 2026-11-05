@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class AppSizes {
   static const double paddingXS = 8;
   static const double paddingSM = 12;
@@ -16,4 +18,32 @@ class AppSizes {
 
   static const double buttonHeight = 52;
   static const double cardElevation = 4;
+
+  static const double designWidth = 390;
+  static const double designHeight = 844;
+
+  static double responsiveWidth(BuildContext context, double value) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 0) return value;
+    return value * (width / designWidth);
+  }
+
+  static double responsiveHeight(BuildContext context, double value) {
+    final height = MediaQuery.sizeOf(context).height;
+    if (height <= 0) return value;
+    return value * (height / designHeight);
+  }
+
+  static double responsiveSpacing(BuildContext context, double value) {
+    return responsiveWidth(context, value);
+  }
+
+  static double getHorizontalPadding(BuildContext context) {
+    return responsiveSpacing(context, paddingXL);
+  }
+
+  static double headerHeight(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    return (height * 0.34).clamp(220, 320).toDouble();
+  }
 }

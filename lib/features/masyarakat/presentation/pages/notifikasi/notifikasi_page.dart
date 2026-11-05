@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/home/data/laporan_service.dart';
-import 'package:infrast/presentation/pages/laporan/detail/laporan_detail_page.dart';
+import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
 
 class NotifikasiPage extends StatefulWidget {
   const NotifikasiPage({super.key});
@@ -26,7 +26,8 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     final result = await LaporanService.fetchMyLaporan();
     if (!mounted) return;
     if (result['success'] == true) {
-      final data = List<Map<String, dynamic>>.from(result['data'] ?? []);
+      final raw = result['data'] is Map && (result['data'] as Map).containsKey('data') ? result['data']['data'] : result['data'];
+      final data = (raw is List) ? List<Map<String, dynamic>>.from(raw) : <Map<String, dynamic>>[];
       setState(() { _laporan = data; _loading = false; });
     } else {
       setState(() { _error = result['message'] ?? 'Gagal memuat.'; _loading = false; });
@@ -374,4 +375,6 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
 
   String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
+
+
 

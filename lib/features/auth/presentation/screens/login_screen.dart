@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/constants/app_colors.dart';
+import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/register_screen.dart';
-import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 import 'package:infrast/presentation/widgets/animated_blob_background.dart';
 import 'package:infrast/presentation/widgets/dialogs/user_friendly_dialog.dart';
@@ -21,6 +23,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pemanasan auto-discovery base URL di background
+    ApiConstants.warmup();
+  }
 
   // Validasi format email
   String? _validateEmail(String? value) {
@@ -79,13 +88,14 @@ class _LoginScreenState extends State<LoginScreen> {
           title: 'Tidak Dapat Terhubung ke Server',
           message: 'Aplikasi tidak dapat menghubungi backend JEKI Laravel. Pastikan server sudah dinyalakan.',
           solutionSteps: [
-            'Buka Terminal di folder adminbackend dan jalankan: php artisan serve',
+            'Buka Terminal di folder backend dan jalankan: php artisan serve --host=0.0.0.0 --port=8000',
             'Jika Android Emulator, pastikan URL adalah http://10.0.2.2:8000/api',
             'Jika Windows/Web, gunakan http://127.0.0.1:8000/api',
-            'Jika HP fisik, pastikan HP & laptop terhubung ke Wi-Fi yang sama.',
+            'Jika HP fisik via Wi-Fi, isi URL ke http://IP_LAPTOP:8000/api (contoh: http://10.10.191.113:8000/api).',
+            'Jika HP fisik via USB, jalankan sekali: adb reverse tcp:8000 tcp:8000 lalu gunakan http://127.0.0.1:8000/api.',
           ],
           primaryButtonText: 'Tutup',
-          secondaryButtonText: '🔧 Atur Server IP',
+          secondaryButtonText: 'ðŸ”§ Atur Server IP',
           onSecondaryPressed: () {
             UserFriendlyDialog.showServerConfigModal(context);
           },
@@ -95,7 +105,9 @@ class _LoginScreenState extends State<LoginScreen> {
           context: context,
           type: DialogType.warning,
           title: 'Akun Tidak Dapat Masuk',
-          message: result['message'] ?? 'Akun ini tidak dapat menggunakan aplikasi mobile JEKI.',
+          message:
+              result['message'] ??
+              'Akun ini tidak dapat menggunakan aplikasi mobile JEKI.',
           solutionSteps: [
             'Aplikasi JEKI mobile digunakan oleh Warga Masyarakat dan Petugas Pelaksana.',
             'Jika Anda Administrator Dinas, akses Web Dashboard di browser: http://localhost:8000/login',
@@ -107,7 +119,9 @@ class _LoginScreenState extends State<LoginScreen> {
           context: context,
           type: DialogType.error,
           title: 'Gagal Masuk',
-          message: result['message'] ?? 'Email atau kata sandi yang Anda masukkan salah.',
+          message:
+              result['message'] ??
+              'Email atau kata sandi yang Anda masukkan salah.',
           solutionSteps: [
             'Pastikan tidak ada kesalahan ketik pada email atau kata sandi Anda.',
             'Gunakan tombol "Isi Cepat Akun Demo" di bawah untuk testing.',
@@ -131,12 +145,12 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ── Curved Header ────────────────────────────────────────────────
+            // â”€â”€ Curved Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             ClipPath(
               clipper: CustomHeaderClipper(),
               child: Container(
                 width: double.infinity,
-                height: 310,
+                height: AppSizes.headerHeight(context),
                 decoration: const BoxDecoration(
                   gradient: AppColors.primaryGradient,
                 ),
@@ -156,11 +170,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.white.withValues(alpha: 0.2),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.settings_outlined,
-                                  color: Colors.white, size: 20),
+                              child: const Icon(
+                                Icons.settings_outlined,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                             onPressed: () =>
-                                UserFriendlyDialog.showServerConfigModal(context),
+                                UserFriendlyDialog.showServerConfigModal(
+                                  context,
+                                ),
                           ),
                         ),
                         Center(
@@ -169,13 +188,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               // Glassmorphic Home Icon Squircle
                               Container(
-                                width: 66,
-                                height: 66,
+                                width: AppSizes.responsiveWidth(context, 66),
+                                height: AppSizes.responsiveWidth(context, 66),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(22),
                                   color: Colors.white.withValues(alpha: 0.22),
                                   border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.45)),
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: const Color(0xFFB50060)
@@ -185,29 +205,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ],
                                 ),
-                                child: const Icon(Icons.home_rounded,
-                                    color: Colors.white, size: 34),
+                                child: Icon(
+                                  Icons.home_rounded,
+                                  color: Colors.white,
+                                  size: AppSizes.responsiveWidth(context, 34),
+                                ),
                               ),
-                              const SizedBox(height: 16),
-                              const Text(
+                              SizedBox(
+                                height: AppSizes.responsiveSpacing(context, 16),
+                              ),
+                              Text(
                                 'Masuk Ke Akun',
                                 style: TextStyle(
-                                  fontSize: 25,
+                                  fontSize: AppSizes.responsiveWidth(
+                                    context,
+                                    25,
+                                  ),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   letterSpacing: 0.3,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              SizedBox(
+                                height: AppSizes.responsiveSpacing(context, 6),
+                              ),
                               Text(
                                 'Masuk untuk melaporkan infrastruktur',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: AppSizes.responsiveWidth(
+                                    context,
+                                    13,
+                                  ),
                                   color: Colors.white.withValues(alpha: 0.88),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: AppSizes.responsiveSpacing(context, 16),
+                              ),
                             ],
                           ),
                         ),
@@ -218,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // ── Floating Form Card ────────────────────────────────────────────
+            // â”€â”€ Floating Form Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Transform.translate(
               offset: const Offset(0, -40),
               child: Container(
@@ -247,32 +282,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         validator: _validateEmail,
                         decoration: InputDecoration(
                           hintText: 'Alamat Email',
-                          prefixIcon: const Icon(Icons.mail_outline_rounded,
-                              color: AppColors.textMuted),
+                          prefixIcon: const Icon(
+                            Icons.mail_outline_rounded,
+                            color: AppColors.textMuted,
+                          ),
                           filled: true,
                           fillColor: AppColors.background,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: AppColors.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: AppColors.border),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(
-                                color: AppColors.primary, width: 1.5),
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
                           ),
                           errorBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                const BorderSide(color: AppColors.error),
+                            borderSide: const BorderSide(
+                              color: AppColors.error,
+                            ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16, horizontal: 16),
+                            vertical: 16,
+                            horizontal: 16,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -284,8 +324,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         validator: _validatePassword,
                         decoration: InputDecoration(
                           hintText: 'Kata Sandi',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded,
-                              color: AppColors.textMuted),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline_rounded,
+                            color: AppColors.textMuted,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
@@ -295,49 +337,54 @@ class _LoginScreenState extends State<LoginScreen> {
                               size: 20,
                             ),
                             onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                           filled: true,
                           fillColor: AppColors.background,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: AppColors.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                BorderSide(color: AppColors.border),
+                            borderSide: BorderSide(color: AppColors.border),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(
-                                color: AppColors.primary, width: 1.5),
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
                           ),
                           errorBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide:
-                                const BorderSide(color: AppColors.error),
+                            borderSide: const BorderSide(
+                              color: AppColors.error,
+                            ),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16, horizontal: 16),
+                            vertical: 16,
+                            horizontal: 16,
+                          ),
                         ),
                       ),
 
-                      // ── Quick-fill demo accounts ─────────────────────────
+                      // â”€â”€ Quick-fill demo accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       const SizedBox(height: 16),
                       const Text(
                         'Isi Cepat Akun Demo:',
                         style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 8),
 
                       // Demo akun masyarakat
                       _quickFillChip(
-                        label: '👤 Warga: masyarakat@jeki.id',
+                        label: 'ðŸ‘¤ Warga: masyarakat@jeki.id',
                         onTap: () {
                           _emailController.text = 'masyarakat@jeki.id';
                           _passwordController.text = 'password';
@@ -348,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Demo akun pelaksana
                       _quickFillChip(
-                        label: '🔧 Pelaksana: budi.pelaksana@jeki.id',
+                        label: 'ðŸ”§ Pelaksana: budi.pelaksana@jeki.id',
                         onTap: () {
                           _emailController.text = 'budi.pelaksana@jeki.id';
                           _passwordController.text = 'password';
@@ -358,31 +405,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 20),
 
-                      // ── Tombol Login ──────────────────────────────────────
+                      // â”€â”€ Tombol Login â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
                           ),
                           elevation: 4,
-                          shadowColor:
-                              AppColors.primary.withValues(alpha: 0.4),
+                          shadowColor: AppColors.primary.withValues(alpha: 0.4),
                         ),
                         child: _isLoading
                             ? const SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2),
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     'Masuk',
@@ -392,23 +438,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded,
-                                      size: 20),
+                                  Icon(Icons.arrow_forward_rounded, size: 20),
                                 ],
                               ),
                       ),
 
                       const SizedBox(height: 16),
 
-                      // ── Divider OR ────────────────────────────────────────
+                      // â”€â”€ Divider OR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       Row(
                         children: [
                           Expanded(
-                              child: Divider(
-                                  color: AppColors.border, thickness: 1)),
+                            child: Divider(
+                              color: AppColors.border,
+                              thickness: 1,
+                            ),
+                          ),
                           Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               'ATAU',
                               style: TextStyle(
@@ -419,28 +466,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           Expanded(
-                              child: Divider(
-                                  color: AppColors.border, thickness: 1)),
+                            child: Divider(
+                              color: AppColors.border,
+                              thickness: 1,
+                            ),
+                          ),
                         ],
                       ),
 
                       const SizedBox(height: 16),
 
-                      // ── Google SSO (non-fungsi) ────────────────────────────
+                      // â”€â”€ Google SSO (non-fungsi) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       Tooltip(
                         message: 'Segera hadir',
                         child: OutlinedButton(
                           onPressed: null,
                           style: OutlinedButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                             side: BorderSide(
-                                color: AppColors.border
-                                    .withValues(alpha: 0.5),
-                                width: 1.5),
+                              color: AppColors.border.withValues(alpha: 0.5),
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -469,14 +518,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textMuted
-                                      .withValues(alpha: 0.6),
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(8),
@@ -500,7 +552,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            // ── Footer: daftar & info pelaksana ──────────────────────────────
+            // â”€â”€ Footer: daftar & info pelaksana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Transform.translate(
               offset: const Offset(0, -30),
               child: Column(
@@ -518,7 +570,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const RegisterScreen()),
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           );
                         },
                         child: const Text(
@@ -538,26 +591,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0369A1).withValues(alpha: 0.07),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: const Color(0xFF0369A1)
-                                .withValues(alpha: 0.2)),
+                          color: const Color(0xFF0369A1).withValues(alpha: 0.2),
+                        ),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline_rounded,
-                              size: 16, color: Color(0xFF0369A1)),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: Color(0xFF0369A1),
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Akun Petugas Pelaksana hanya bisa didaftarkan oleh Administrator Dinas melalui Web Dashboard.',
                               style: TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF0C4A6E),
-                                  height: 1.4),
+                                fontSize: 11,
+                                color: Color(0xFF0C4A6E),
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         ],
@@ -597,7 +656,10 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Text(
                 label,
                 style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.bold, color: color),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
           ],
@@ -615,9 +677,12 @@ class CustomHeaderClipper extends CustomClipper<Path> {
 
     // Smooth organic wave dipping on left and swooping across
     path.cubicTo(
-      size.width * 0.28, size.height - 12,
-      size.width * 0.65, size.height - 75,
-      size.width, size.height - 42,
+      size.width * 0.28,
+      size.height - 12,
+      size.width * 0.65,
+      size.height - 75,
+      size.width,
+      size.height - 42,
     );
 
     path.lineTo(size.width, 0);

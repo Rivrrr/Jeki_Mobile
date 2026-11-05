@@ -48,7 +48,9 @@ class UserFriendlyDialog {
       barrierDismissible: false,
       builder: (dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           elevation: 12,
           backgroundColor: AppColors.cardSurface,
           child: SingleChildScrollView(
@@ -57,152 +59,168 @@ class UserFriendlyDialog {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                // Icon Header Lingkaran
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: headerColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(headerIcon, color: headerColor, size: 36),
-                ),
-                const SizedBox(height: 18),
-
-                // Judul
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Pesan Penjelasan
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-
-                // Langkah Solusi (Jika Ada)
-                if (solutionSteps != null && solutionSteps.isNotEmpty) ...[
-                  const SizedBox(height: 16),
+                  // Icon Header Lingkaran
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
+                      color: headerColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.lightbulb_outline_rounded, size: 18, color: AppColors.primary),
-                            SizedBox(width: 6),
-                            Text(
-                              'Panduan Langkah:',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ...solutionSteps.map((step) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Icon(headerIcon, color: headerColor, size: 36),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Judul
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Pesan Penjelasan
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                      height: 1.45,
+                    ),
+                  ),
+
+                  // Langkah Solusi (Jika Ada)
+                  if (solutionSteps != null && solutionSteps.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
                             children: [
-                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
-                              Expanded(
-                                child: Text(
-                                  step,
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.textSecondary,
-                                    height: 1.35,
-                                  ),
+                              Icon(
+                                Icons.lightbulb_outline_rounded,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Panduan Langkah:',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                             ],
                           ),
-                        )),
-                      ],
+                          const SizedBox(height: 8),
+                          ...solutionSteps.map(
+                            (step) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      step,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: AppColors.textSecondary,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Tombol Aksi
-                Row(
-                  children: [
-                    if (secondaryButtonText != null) ...[
+                  // Tombol Aksi
+                  Row(
+                    children: [
+                      if (secondaryButtonText != null) ...[
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                              onSecondaryPressed?.call();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              side: BorderSide(color: AppColors.border),
+                            ),
+                            child: Text(
+                              secondaryButtonText,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       Expanded(
-                        child: OutlinedButton(
+                        child: ElevatedButton(
                           onPressed: () {
                             Navigator.of(dialogContext).pop();
-                            onSecondaryPressed?.call();
+                            onPrimaryPressed?.call();
                           },
-                          style: OutlinedButton.styleFrom(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: headerColor,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            side: BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
                           ),
                           child: Text(
-                            secondaryButtonText,
+                            primaryButtonText,
                             style: const TextStyle(
-                              fontSize: 13,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
                     ],
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop();
-                          onPrimaryPressed?.call();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: headerColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          primaryButtonText,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
       },
     );
   }
@@ -374,7 +392,11 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
             // Presets Cepat
             const Text(
               'Pilih Lingkungan Cepat:',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMuted),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -383,19 +405,29 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
               children: [
                 ActionChip(
                   avatar: const Icon(Icons.wifi_rounded, size: 16),
-                  label: const Text('HP Fisik / Wi-Fi (192.168.1.13:8000)', style: TextStyle(fontSize: 12)),
+                  label: const Text(
+                    'HP Fisik / Wi-Fi (isi IP laptop Anda)',
+                    style: TextStyle(fontSize: 12),
+                  ),
                   backgroundColor: AppColors.background,
-                  onPressed: () => _applyPreset('http://192.168.1.13:8000/api'),
+                  onPressed: () =>
+                      _applyPreset('http://192.168.1.100:8000/api'),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.phone_android_rounded, size: 16),
-                  label: const Text('Android Emulator (10.0.2.2:8000)', style: TextStyle(fontSize: 12)),
+                  label: const Text(
+                    'Android Emulator (10.0.2.2:8000)',
+                    style: TextStyle(fontSize: 12),
+                  ),
                   backgroundColor: AppColors.background,
                   onPressed: () => _applyPreset('http://10.0.2.2:8000/api'),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.laptop_chromebook_rounded, size: 16),
-                  label: const Text('Komputer / Desktop (127.0.0.1:8000)', style: TextStyle(fontSize: 12)),
+                  label: const Text(
+                    'Komputer / Desktop (127.0.0.1:8000)',
+                    style: TextStyle(fontSize: 12),
+                  ),
                   backgroundColor: AppColors.background,
                   onPressed: () => _applyPreset('http://127.0.0.1:8000/api'),
                 ),
@@ -418,32 +450,54 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.network_check_rounded, color: AppColors.primary),
-                  onPressed: _isTesting ? null : () => _testConnection(widget.controller.text),
+                      : const Icon(
+                          Icons.network_check_rounded,
+                          color: AppColors.primary,
+                        ),
+                  onPressed: _isTesting
+                      ? null
+                      : () => _testConnection(widget.controller.text),
                 ),
                 filled: true,
                 fillColor: AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
 
             if (_testMessage != null) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: (_isTestSuccess == true ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                  color:
+                      (_isTestSuccess == true
+                              ? AppColors.success
+                              : AppColors.error)
+                          .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: (_isTestSuccess == true ? AppColors.success : AppColors.error).withValues(alpha: 0.3),
+                    color:
+                        (_isTestSuccess == true
+                                ? AppColors.success
+                                : AppColors.error)
+                            .withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      _isTestSuccess == true ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                      _isTestSuccess == true
+                          ? Icons.check_circle_rounded
+                          : Icons.error_outline_rounded,
                       size: 16,
-                      color: _isTestSuccess == true ? AppColors.success : AppColors.error,
+                      color: _isTestSuccess == true
+                          ? AppColors.success
+                          : AppColors.error,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -451,7 +505,9 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
                         _testMessage!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: _isTestSuccess == true ? AppColors.success : AppColors.error,
+                          color: _isTestSuccess == true
+                              ? AppColors.success
+                              : AppColors.error,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -471,7 +527,9 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
                     onPressed: _resetToDefault,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text('Reset Bawaan'),
                   ),
@@ -484,7 +542,9 @@ class _ServerConfigSheetState extends State<_ServerConfigSheet> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text('Simpan & Pakai'),
                   ),

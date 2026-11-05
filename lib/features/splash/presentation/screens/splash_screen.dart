@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/constants/app_colors.dart';
+import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
-import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -24,6 +26,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    // Pemanasan auto-discovery base URL di background
+    ApiConstants.warmup();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -100,8 +104,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               top: -100,
               right: -100,
               child: Container(
-                width: 300,
-                height: 300,
+                width: AppSizes.responsiveWidth(context, 300),
+                height: AppSizes.responsiveHeight(context, 300),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.08),
@@ -110,7 +114,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(horizontal: AppSizes.getHorizontalPadding(context)),
                 child: Column(
                   children: [
                     const Spacer(flex: 3),
@@ -128,8 +132,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                               ScaleTransition(
                                 scale: _pulseAnimation,
                                 child: Container(
-                                  width: 120,
-                                  height: 120,
+                                  width: AppSizes.responsiveWidth(context, 120),
+                                  height: AppSizes.responsiveWidth(context, 120),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Colors.white.withValues(alpha: 0.15),
@@ -137,8 +141,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                 ),
                               ),
                               Container(
-                                width: 80,
-                                height: 80,
+                                width: AppSizes.responsiveWidth(context, 80),
+                                height: AppSizes.responsiveWidth(context, 80),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
                                   borderRadius: BorderRadius.circular(28),
@@ -154,55 +158,55 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.home_rounded,
                                   color: Colors.white,
-                                  size: 40,
+                                  size: AppSizes.responsiveWidth(context, 40),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 24)),
                           
                           // Title & Badge
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
+                              Text(
                                 'Jeki',
                                 style: TextStyle(
-                                  fontSize: 32,
+                                  fontSize: AppSizes.responsiveWidth(context, 32),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   letterSpacing: 1.2,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: AppSizes.responsiveSpacing(context, 8)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Jember',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 14,
+                                    fontSize: AppSizes.responsiveWidth(context, 14),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 8)),
                           
                           // Tagline
                           Text(
                             '"Lapor Infrastruktur, Wujudkan Jember Lebih Baik"',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 13,
+                              fontSize: AppSizes.responsiveWidth(context, 13),
                               fontStyle: FontStyle.italic,
                             ),
                             textAlign: TextAlign.center,
@@ -215,28 +219,28 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
                     // Bottom Content
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 30),
+                      padding: EdgeInsets.only(bottom: AppSizes.responsiveHeight(context, 30)),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const BouncingDotsLoader(),
-                          const SizedBox(height: 20),
+                          SizedBox(height: AppSizes.responsiveSpacing(context, 20)),
                           
                           // Footer
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.verified_user_rounded,
                                 color: Colors.white,
-                                size: 14,
+                                size: AppSizes.responsiveWidth(context, 14),
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: AppSizes.responsiveSpacing(context, 6)),
                               Text(
                                 'Pemerintah Daerah — DISKOMINFO',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 11,
+                                  fontSize: AppSizes.responsiveWidth(context, 11),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -270,6 +274,8 @@ class _BouncingDotsLoaderState extends State<BouncingDotsLoader> with SingleTick
   @override
   void initState() {
     super.initState();
+    // Pemanasan auto-discovery base URL di background
+    ApiConstants.warmup();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -313,3 +319,4 @@ class _BouncingDotsLoaderState extends State<BouncingDotsLoader> with SingleTick
     );
   }
 }
+

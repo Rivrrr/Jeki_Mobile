@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
-import 'package:infrast/presentation/pages/laporan/list/my_laporan_page.dart';
+import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/list/my_laporan_page.dart';
 
 class LaporanBerhasilScreen extends StatelessWidget {
   const LaporanBerhasilScreen({super.key, required this.nomorLaporan});
@@ -84,7 +84,7 @@ class LaporanBerhasilScreen extends StatelessWidget {
                     const _SuccessMark(),
                     const SizedBox(height: 28),
                     const Text(
-                      'Laporan Berhasil\nDikirim! 🎉',
+                      'Laporan Berhasil\nDikirim! ðŸŽ‰',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -159,7 +159,7 @@ class LaporanBerhasilScreen extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Lihat Status Laporan →',
+                          'Lihat Riwayat Laporan â†’',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -299,3 +299,5 @@ class _StatusDot extends StatelessWidget {
     );
   }
 }
+
+

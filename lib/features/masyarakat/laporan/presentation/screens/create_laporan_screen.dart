@@ -1,7 +1,10 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/services/laporan_service.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
-import 'package:infrast/features/laporan/presentation/screens/laporan_berhasil_screen.dart';
+import 'package:infrast/features/masyarakat/laporan/presentation/screens/laporan_berhasil_screen.dart';
 import '../widgets/step_kategori.dart';
 import '../widgets/step_lokasi.dart';
 import '../widgets/step_foto.dart';
@@ -19,7 +22,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
   int _currentStep = 0;
   final int _totalSteps = 4;
 
-  // ── Form State ─────────────────────────────────────────────
+  // â”€â”€ Form State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Step 1: Kategori
   int? _selectedKategoriId;
   String? _selectedKategoriNama;
@@ -39,9 +42,39 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
   // Step 4: Konfirmasi
   bool _isAgreed = false;
+  late final String _kodePersetujuan;
 
   // Submitting state
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Kode persetujuan stabil (tidak berubah-ubah saat checklist diklik)
+    final randomSuffix = (10000 + Random().nextInt(90000)).toString();
+    _kodePersetujuan = 'RPT-${DateTime.now().year}-$randomSuffix';
+    _initDeviceLocation();
+  }
+
+  Future<void> _initDeviceLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+        final pos = await Geolocator.getLastKnownPosition();
+        if (pos != null && mounted) {
+          setState(() {
+            _latitude = pos.latitude;
+            _longitude = pos.longitude;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -52,7 +85,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
     super.dispose();
   }
 
-  // ── Judul otomatis dari kategori + kecamatan ───────────────
+  // â”€â”€ Judul otomatis dari kategori + kecamatan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   String get _judulOtomatis {
     final kat = _selectedKategoriNama ?? 'Laporan';
     final kec = _selectedKecamatanNama != null
@@ -111,8 +144,11 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
         }
         return true;
       case 2:
-        if (_photos.isEmpty) {
-          _showError('Tambahkan minimal 1 foto bukti kerusakan');
+        if (_photos.length < 3) {
+          _showError(
+            'Wajib mengambil minimal 3 foto bukti kerusakan langsung dari kamera '
+            '(saat ini baru ${_photos.length}/3 foto).',
+          );
           return false;
         }
         if (_deskripsiController.text.trim().isEmpty) {
@@ -135,18 +171,17 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
     );
   }
 
-  /// Menambahkan foto bukti.
-  /// Karena dalam tahap pengembangan/testing dan untuk mencegah error kamera di desktop/browser/emulator,
-  /// fungsi ini langsung mengisi foto sampel infrastruktur acak yang valid secara in-memory
-  /// sekaligus menyematkan koordinat GPS Kabupaten Jember.
+  /// Mengambil foto bukti kerusakan langsung dari Kamera perangkat.
+  /// Pengambilan dari galeri tidak diizinkan demi menjamin keaslian data lapangan.
+  /// Foto otomatis diberi watermark koordinat GPS dan tanggal/jam WIB.
   Future<void> _addPhoto() async {
-    if (_photos.length >= 3) {
-      _showError('Maksimal 3 foto yang dapat diunggah');
+    if (_photos.length >= 5) {
+      _showError('Maksimal 5 foto bukti kerusakan yang dapat diunggah');
       return;
     }
 
     try {
-      // Pastikan koordinat GPS sudah digenerate/terkunci
+      // Pastikan koordinat GPS sudah tersedia
       if (_latitude == null || _longitude == null) {
         final coord = FotoHelper.generateJemberCoordinate(
           kecamatanNama: _selectedKecamatanNama,
@@ -156,30 +191,43 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
         _coordinateLabel = coord['label'] as String;
       }
 
-      // Ambil foto sampel acak berbasis bytes in-memory (100% aman untuk Web & Native)
-      final photoItem = await FotoHelper.getDevSamplePhoto(
-        index: _photos.length,
+      // Buka kamera asli perangkat secara langsung (Wajib kamera langsung, tanpa galeri)
+      final photoItem = await FotoHelper.ambilFotoKamera(
+        latitude: _latitude!,
+        longitude: _longitude!,
+        locationLabel: _coordinateLabel ?? 'Kabupaten Jember',
+        alamatJalan: _alamatController.text.trim(),
       );
-      final label = FotoHelper.getSampleLabel(_photos.length);
+
+      if (photoItem == null) {
+        // Pengguna membatalkan pengambilan gambar di kamera
+        return;
+      }
 
       setState(() {
         _photos.add(photoItem);
       });
 
       if (mounted) {
+        final total = _photos.length;
+        final kurang = 3 - total;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '📸 Foto ${_photos.length} ditambahkan: $label [📍 $_latitude, $_longitude]',
+              total >= 3
+                  ? '📸 Foto ke-${total} berhasil diambil & diberi watermark WIB! (Syarat min. 3 foto terpenuhi ✓)'
+                  : '📸 Foto ke-${total} berhasil diambil & diberi watermark WIB! (Kurang ${kurang} foto lagi)',
             ),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: total >= 3 ? const Color(0xFF16A34A) : const Color(0xFFE91E63),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    } on PlatformException catch (pe) {
+      _showError('Kamera fisik tidak dapat diakses (${pe.message ?? pe.code}). Pastikan izin kamera telah diberikan pada perangkat.');
     } catch (e) {
-      _showError('Gagal menambahkan foto: ${e.toString()}');
+      _showError('Gagal mengambil foto dari kamera: ${e.toString()}');
     }
   }
 
@@ -195,7 +243,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
       final lokasiLengkap = [
         _alamatController.text.trim(),
         _detailController.text.trim(),
-      ].where((s) => s.isNotEmpty).join(' — ');
+      ].where((s) => s.isNotEmpty).join(' â€” ');
 
       final result = await LaporanService.createLaporan(
         kategoriId: _selectedKategoriId!,
@@ -220,7 +268,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => LaporanBerhasilScreen(
-              nomorLaporan: nomor.isNotEmpty ? nomor : '-',
+              nomorLaporan: nomor.isNotEmpty ? nomor : _kodePersetujuan,
             ),
           ),
         );
@@ -304,7 +352,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── App Bar ──────────────────────────────────────────
+            // â”€â”€ App Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -331,7 +379,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'LANGKAH ${_currentStep + 1} DARI $_totalSteps — ${_getStepSubtitle(_currentStep)}',
+                          'LANGKAH ${_currentStep + 1} DARI $_totalSteps â€” ${_getStepSubtitle(_currentStep)}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -355,7 +403,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
               ),
             ),
 
-            // ── Progress Bar ──────────────────────────────────────
+            // â”€â”€ Progress Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 24.0,
@@ -365,7 +413,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── PageView ─────────────────────────────────────────
+            // â”€â”€ PageView â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -431,6 +479,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
 
                     // Step 4: Konfirmasi
                     StepKonfirmasi(
+                      reportId: _kodePersetujuan,
                       kategori: _selectedKategoriNama,
                       kecamatan: _selectedKecamatanNama,
                       alamat: _alamatController.text,
@@ -454,7 +503,7 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
         ),
       ),
 
-      // ── Bottom Navigation ──────────────────────────────────────
+      // â”€â”€ Bottom Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
@@ -560,3 +609,4 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
     );
   }
 }
+

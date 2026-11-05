@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 
 class StepKonfirmasi extends StatelessWidget {
+  final String reportId;
   final String? kategori;
   final String? kecamatan;
   final String alamat;
@@ -18,6 +19,7 @@ class StepKonfirmasi extends StatelessWidget {
 
   const StepKonfirmasi({
     super.key,
+    required this.reportId,
     required this.kategori,
     this.kecamatan,
     required this.alamat,
@@ -35,8 +37,12 @@ class StepKonfirmasi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Generate dummy report ID
-    final reportId = 'RPT-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final now = DateTime.now();
+    final dateStr = '${now.day} ${months[now.month]} ${now.year}';
     
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -134,10 +140,12 @@ class StepKonfirmasi extends StatelessWidget {
                 _buildSummaryRow(
                   label: 'FOTO BUKTI',
                   value: '',
-                  customValueWidget: Row(
+                  customValueWidget: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: photos.map((p) {
                       return Container(
-                        margin: const EdgeInsets.only(right: 8, top: 8),
+                        margin: const EdgeInsets.only(top: 8),
                         width: 52,
                         height: 52,
                         decoration: BoxDecoration(
@@ -212,7 +220,7 @@ class StepKonfirmasi extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${DateTime.now().day} Sep ${DateTime.now().year}',
+                  dateStr,
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -338,14 +346,13 @@ class StepKonfirmasi extends StatelessWidget {
   }
 
   String _getKategoriIcon(String? kategori) {
-    switch (kategori) {
-      case 'Jalan Rusak': return '🛣️';
-      case 'Jembatan': return '🌉';
-      case 'Lampu Jalan': return '💡';
-      case 'Drainase': return '🌊';
-      case 'Fasilitas Umum': return '🏛️';
-      case 'Lainnya': return '➕';
-      default: return '📄';
-    }
+    if (kategori == null) return '📄';
+    final lower = kategori.toLowerCase();
+    if (lower.contains('jalan')) return '🛣️';
+    if (lower.contains('jembatan')) return '🌉';
+    if (lower.contains('lampu')) return '💡';
+    if (lower.contains('drainase') || lower.contains('saluran')) return '🌊';
+    if (lower.contains('fasilitas')) return '🏛️';
+    return '📄';
   }
 }

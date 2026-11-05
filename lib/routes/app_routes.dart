@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/auth/presentation/screens/register_screen.dart';
-import 'package:infrast/features/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_list_screen.dart';
 import 'package:infrast/features/splash/presentation/screens/splash_screen.dart';
-import 'package:infrast/presentation/pages/notifikasi/notifikasi_page.dart';
-import 'package:infrast/presentation/pages/onboarding/onboarding_page.dart';
-import 'package:infrast/presentation/pages/peta/peta_page.dart';
-import 'package:infrast/presentation/pages/profil/profil_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/notifikasi/notifikasi_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/onboarding/onboarding_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/peta/peta_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/profil/profil_page.dart';
 
 class AppRoutes {
   static const String splash           = '/';
@@ -56,3 +56,5 @@ class AppRoutes {
     }
   }
 }
+
+

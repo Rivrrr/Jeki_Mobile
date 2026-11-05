@@ -95,20 +95,62 @@ class _StepLokasiState extends State<StepLokasi> {
       _selectedPoint = _jemberKecamatanCentroids[widget.selectedKecamatanNama!]!;
     }
     _loadKecamatan();
+
+    // Otomatis pusatkan titik ke posisi riil perangkat (device) saat form lokasi dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasUserLocation && (widget.latitude == null || widget.longitude == null)) {
+        _handleSetCurrentLocation(isAuto: true);
+      } else if (widget.alamatController.text.trim().isEmpty) {
+        _reverseGeocode(_selectedPoint);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant StepLokasi oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.latitude != null &&
+        widget.longitude != null &&
+        (widget.latitude != oldWidget.latitude || widget.longitude != oldWidget.longitude)) {
+      final newPoint = LatLng(widget.latitude!, widget.longitude!);
+      _selectedPoint = newPoint;
+      _hasUserLocation = true;
+      _mapController.move(newPoint, 17.0);
+      if (widget.alamatController.text.trim().isEmpty) {
+        _reverseGeocode(newPoint);
+      }
+    }
   }
 
   Future<void> _loadKecamatan() async {
-    final res = await LaporanService.fetchKecamatan();
+    try {
+      final res = await LaporanService.fetchKecamatan();
+      if (!mounted) return;
+      if (res['success'] == true) {
+        final raw = res['data']?['data'] ?? res['data'] ?? [];
+        final list = List<Map<String, dynamic>>.from(raw);
+        if (list.isNotEmpty) {
+          setState(() {
+            _kecamatanList = list;
+            _loadingKec = false;
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+
     if (!mounted) return;
-    if (res['success'] == true) {
-      final raw = res['data']?['data'] ?? res['data'] ?? [];
-      setState(() {
-        _kecamatanList = List<Map<String, dynamic>>.from(raw);
-        _loadingKec = false;
-      });
-    } else {
-      setState(() => _loadingKec = false);
-    }
+    int idCounter = 1;
+    final fallbackList = _jemberKecamatanCentroids.keys.map((kNama) {
+      return {
+        'id': idCounter++,
+        'nama': kNama,
+      };
+    }).toList();
+    setState(() {
+      _kecamatanList = fallbackList;
+      _loadingKec = false;
+    });
   }
 
   void _zoomIn() {
@@ -160,94 +202,302 @@ class _StepLokasiState extends State<StepLokasi> {
     return null;
   }
 
-  /// Melakukan Reverse Geocoding ke OpenStreetMap Nominatim
+  /// Format nomor rumah agar rapi dan sesuai standar alamat Indonesia
+  String _formatNomorRumah(String raw) {
+    final clean = raw.trim();
+    final lower = clean.toLowerCase();
+    if (lower.startsWith('no.') ||
+        lower.startsWith('no ') ||
+        lower.startsWith('blok') ||
+        lower.startsWith('#')) {
+      return clean;
+    }
+    return 'No. $clean';
+  }
+
+  /// Bersihkan dan standarisasi nama jalan
+  String _formatNamaJalan(String raw) {
+    var road = raw.trim();
+    final lower = road.toLowerCase();
+    if (lower.startsWith('jalan ')) {
+      road = 'Jl. ${road.substring(6)}';
+    } else if (!lower.startsWith('jl.') &&
+        !lower.startsWith('jl ') &&
+        !lower.startsWith('gang ') &&
+        !lower.startsWith('gg.') &&
+        !lower.startsWith('gg ') &&
+        !lower.startsWith('lorong ') &&
+        !lower.startsWith('blok ') &&
+        !lower.startsWith('dusun ') &&
+        !lower.startsWith('alun-alun') &&
+        !lower.startsWith('kawasan')) {
+      road = 'Jl. $road';
+    }
+    return road;
+  }
+
+  /// Melakukan Reverse Geocoding multi-provider (Nominatim Zoom 17 + Photon Komoot + BigDataCloud)
+  /// untuk menjamin nama jalan dan nomor rumah selalu terisi dengan akurat.
   Future<void> _reverseGeocode(LatLng point) async {
+    String? detectedRoad;
+    String? detectedHouseNumber;
+    String? detectedPoi;
+    String? detectedVillage;
+    String? detectedCityDistrict;
+    String? rawDisplayName;
+
+    // ── 1. Provider Utama: OpenStreetMap Nominatim di Level Jalan (Zoom 17) ──
     try {
-      final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=${point.latitude}&lon=${point.longitude}&zoom=18&addressdetails=1',
+      final nomUrl = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.latitude}&lon=${point.longitude}&zoom=17&addressdetails=1&accept-language=id',
       );
 
-      final response = await http.get(url, headers: {
+      final response = await http.get(nomUrl, headers: {
         'User-Agent': 'Jeki-Infrast-App/1.0 (contact: info@jeki.id)',
+        'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
       }).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final address = data['address'] as Map<String, dynamic>? ?? {};
+        rawDisplayName = data['display_name'] as String?;
 
-        // 1. Buat alamat deskriptif
-        final road = address['road'] ?? address['pedestrian'] ?? address['footway'];
-        final suburb = address['suburb'] ?? address['village'] ?? address['neighbourhood'] ?? address['hamlet'];
-        final cityDistrict = address['city_district'] ?? address['subdistrict'] ?? address['county'];
+        detectedRoad = address['road'] ??
+            address['street'] ??
+            address['residential'] ??
+            address['pedestrian'] ??
+            address['footway'] ??
+            address['path'] ??
+            address['service'] ??
+            address['track'] ??
+            address['cycleway'] ??
+            address['living_street'] ??
+            address['highway'];
 
-        String fullAlamat = '';
-        if (road != null && suburb != null) {
-          fullAlamat = '$road, $suburb';
-        } else if (road != null) {
-          fullAlamat = '$road';
-        } else if (suburb != null) {
-          fullAlamat = '$suburb';
-        } else if (data['display_name'] != null) {
-          final parts = (data['display_name'] as String).split(',');
-          fullAlamat = parts.take(3).join(',').trim();
-        }
+        detectedHouseNumber = address['house_number'] ??
+            address['street_number'] ??
+            address['house_name'];
 
-        if (fullAlamat.isNotEmpty) {
-          widget.alamatController.text = fullAlamat;
-        }
+        final rawBldg = address['building'];
+        final bldgName = (rawBldg is String &&
+                rawBldg.toLowerCase() != 'yes' &&
+                rawBldg.toLowerCase() != 'true' &&
+                rawBldg.toLowerCase() != 'house')
+            ? rawBldg
+            : null;
 
-        // 2. Cocokkan kecamatan
-        final searchSource = '${cityDistrict ?? ''} ${suburb ?? ''} ${data['display_name'] ?? ''}'.toLowerCase();
-        Map<String, dynamic>? matchedKec;
+        detectedPoi = address['amenity'] ??
+            address['shop'] ??
+            address['office'] ??
+            address['tourism'] ??
+            address['leisure'] ??
+            bldgName ??
+            (data['name'] is String && data['name'] != detectedRoad ? data['name'] : null);
 
-        for (final k in _kecamatanList) {
-          final kNama = (k['nama'] as String).toLowerCase();
-          if (searchSource.contains(kNama)) {
-            matchedKec = k;
-            break;
+        detectedVillage = address['suburb'] ??
+            address['village'] ??
+            address['neighbourhood'] ??
+            address['hamlet'] ??
+            address['quarter'];
+
+        detectedCityDistrict = address['city_district'] ??
+            address['subdistrict'] ??
+            address['district'] ??
+            address['county'];
+      }
+    } catch (_) {}
+
+    // ── 2. Provider Kedua (Fallback Cepat): Photon Komoot Spatial Search ──
+    // Jika Nominatim belum menemukan jalan (misal pin di tengah pekarangan rumah),
+    // Photon secara spasial mencari jalan terdekat dari koordinat tersebut.
+    if (detectedRoad == null || detectedRoad.trim().isEmpty) {
+      try {
+        final photonUrl = Uri.parse(
+          'https://photon.komoot.io/reverse?lat=${point.latitude}&lon=${point.longitude}&lang=id',
+        );
+        final pResp = await http.get(photonUrl).timeout(const Duration(seconds: 3));
+        if (pResp.statusCode == 200) {
+          final pData = json.decode(pResp.body);
+          final features = pData['features'] as List?;
+          if (features != null && features.isNotEmpty) {
+            final props = features[0]['properties'] as Map<String, dynamic>? ?? {};
+            final street = props['street'] as String?;
+            if (street != null && street.trim().isNotEmpty) {
+              detectedRoad = street.trim();
+            }
+            if (detectedHouseNumber == null && props['housenumber'] != null) {
+              detectedHouseNumber = props['housenumber'].toString();
+            }
+            if (detectedPoi == null && props['name'] != null && props['name'] != detectedRoad) {
+              detectedPoi = props['name'] as String;
+            }
+            if (detectedVillage == null && props['district'] != null) {
+              detectedVillage = props['district'] as String;
+            }
+            if (detectedCityDistrict == null && props['city'] != null) {
+              detectedCityDistrict = props['city'] as String;
+            }
           }
         }
-
-        // Jika tidak tertangkap dari teks, gunakan kalkulasi jarak terdekat di Jember
-        matchedKec ??= _findClosestKecamatan(point);
-
-        if (matchedKec != null && mounted) {
-          final id = matchedKec['id'] as int;
-          final nama = matchedKec['nama'] as String;
-          widget.onKecamatanSelected(id, nama);
-          setState(() {
-            _detectedAddress = fullAlamat.isNotEmpty ? fullAlamat : 'Kec. $nama, Kab. Jember';
-          });
-        }
-        return;
-      }
-    } catch (_) {
-      // Fallback jika offline/timeout
+      } catch (_) {}
     }
 
-    // Fallback jarak terdekat
-    final fallbackKec = _findClosestKecamatan(point);
-    if (fallbackKec != null && mounted) {
-      final id = fallbackKec['id'] as int;
-      final nama = fallbackKec['nama'] as String;
-      widget.onKecamatanSelected(id, nama);
-      if (widget.alamatController.text.trim().isEmpty) {
-        widget.alamatController.text = 'Wilayah Kec. $nama, Kab. Jember';
+    // ── 3. Provider Ketiga: BigDataCloud Reverse Geocoding ──
+    if (detectedRoad == null || detectedRoad.trim().isEmpty) {
+      try {
+        final bdcUrl = Uri.parse(
+          'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${point.latitude}&longitude=${point.longitude}&localityLanguage=id',
+        );
+        final bResp = await http.get(bdcUrl).timeout(const Duration(seconds: 3));
+        if (bResp.statusCode == 200) {
+          final bData = json.decode(bResp.body);
+          final localityInfo = bData['localityInfo'] as Map<String, dynamic>? ?? {};
+          final informative = localityInfo['informative'] as List? ?? [];
+          for (final item in informative) {
+            final name = item['name'] as String? ?? '';
+            final lower = name.toLowerCase();
+            if (lower.startsWith('jalan ') ||
+                lower.startsWith('jl.') ||
+                lower.startsWith('gang ') ||
+                lower.startsWith('gg.') ||
+                (item['description'] as String? ?? '').toLowerCase().contains('road')) {
+              detectedRoad = name;
+              break;
+            }
+          }
+          if (detectedVillage == null && bData['locality'] != null) {
+            detectedVillage = bData['locality'] as String;
+          }
+          if (detectedCityDistrict == null && bData['localityInfo']?['administrative'] != null) {
+            final admin = bData['localityInfo']['administrative'] as List? ?? [];
+            for (final a in admin) {
+              final aName = (a['name'] as String? ?? '').toLowerCase();
+              if (aName.contains('kecamatan') || a['adminLevel'] == 7) {
+                detectedCityDistrict = a['name'];
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Ekstrak nomor rumah dari awal display_name jika belum terdeteksi terpisah
+    if (detectedHouseNumber == null && rawDisplayName != null && rawDisplayName.isNotEmpty) {
+      final match = RegExp(r'^(?:No\.?\s*)?(\d+[\w\-/]*)\s*,').firstMatch(rawDisplayName);
+      if (match != null) {
+        detectedHouseNumber = match.group(1);
       }
+    }
+
+    // ── 4. Susun Nama Alamat Jalan & Nomor yang Sangat Akurat ──
+    String fullAlamat = '';
+
+    if (detectedRoad != null && detectedRoad.trim().isNotEmpty) {
+      final formattedRoad = _formatNamaJalan(detectedRoad);
+      String streetWithNumber = formattedRoad;
+      if (detectedHouseNumber != null && detectedHouseNumber.trim().isNotEmpty) {
+        streetWithNumber = '$formattedRoad ${_formatNomorRumah(detectedHouseNumber)}';
+      }
+
+      if (detectedVillage != null &&
+          detectedVillage.trim().isNotEmpty &&
+          !formattedRoad.toLowerCase().contains(detectedVillage.toLowerCase())) {
+        fullAlamat = '$streetWithNumber, $detectedVillage';
+      } else {
+        fullAlamat = streetWithNumber;
+      }
+    } else if (rawDisplayName != null && rawDisplayName.isNotEmpty) {
+      // Jika benar-benar tidak ada nama jalan khusus, filter display_name
+      final parts = rawDisplayName
+          .split(',')
+          .map((p) => p.trim())
+          .where((p) {
+            final l = p.toLowerCase();
+            return l.isNotEmpty &&
+                l != 'indonesia' &&
+                l != 'east java' &&
+                l != 'jawa timur' &&
+                l != 'jember' &&
+                l != 'kabupaten jember' &&
+                !RegExp(r'^\d{5}$').hasMatch(l);
+          })
+          .toList();
+
+      if (parts.isNotEmpty) {
+        if (parts.length >= 2 && RegExp(r'^\d+[\w\-/]*$').hasMatch(parts[0])) {
+          fullAlamat = '${_formatNamaJalan(parts[1])} ${_formatNomorRumah(parts[0])}';
+          if (parts.length > 2) {
+            fullAlamat += ', ${parts[2]}';
+          }
+        } else {
+          fullAlamat = parts.take(2).join(', ');
+        }
+      }
+    }
+
+    // Titik pusat Alun-Alun Jember jika pas di pusat kota
+    final dCenter = math.sqrt(
+      math.pow(point.latitude - jemberCenter.latitude, 2) +
+      math.pow(point.longitude - jemberCenter.longitude, 2),
+    );
+    if (dCenter < 0.005) {
+      fullAlamat = 'Alun-Alun Jember, Jl. PB Sudirman';
+    }
+
+    // Otomatis isi detail/patokan jika field patokan masih kosong dan ada landmark terdeteksi
+    if (detectedPoi != null &&
+        detectedPoi.trim().isNotEmpty &&
+        widget.detailController.text.trim().isEmpty) {
+      final poiStr = detectedPoi.trim();
+      if (!fullAlamat.toLowerCase().contains(poiStr.toLowerCase())) {
+        widget.detailController.text = 'Dekat $poiStr';
+      }
+    }
+
+    // ── 5. Cocokkan Kecamatan (Berdasarkan data kecamatan resmi Kab. Jember) ──
+    final searchSource = '${detectedCityDistrict ?? ''} ${detectedVillage ?? ''} ${rawDisplayName ?? ''}'.toLowerCase();
+    Map<String, dynamic>? matchedKec;
+
+    for (final k in _kecamatanList) {
+      final kNama = (k['nama'] as String).toLowerCase();
+      if (searchSource.contains(kNama)) {
+        matchedKec = k;
+        break;
+      }
+    }
+
+    matchedKec ??= _findClosestKecamatan(point);
+
+    if (matchedKec != null && mounted) {
+      final id = matchedKec['id'] as int;
+      final nama = matchedKec['nama'] as String;
+      widget.onKecamatanSelected(id, nama);
+
+      if (fullAlamat.isEmpty) {
+        fullAlamat = 'Wilayah Kec. $nama, Kab. Jember';
+      }
+
+      widget.alamatController.text = fullAlamat;
       setState(() {
-        _detectedAddress = 'Kec. $nama, Kab. Jember';
+        _detectedAddress = fullAlamat;
+      });
+    } else if (fullAlamat.isNotEmpty && mounted) {
+      widget.alamatController.text = fullAlamat;
+      setState(() {
+        _detectedAddress = fullAlamat;
       });
     }
   }
 
-  /// Tombol "Set Lokasi Terkini" ditekan
-  Future<void> _handleSetCurrentLocation() async {
+  /// Tombol "Set Lokasi Terkini" ditekan atau otomatis mendeteksi saat halaman dibuka
+  Future<void> _handleSetCurrentLocation({bool isAuto = false}) async {
     setState(() => _isGettingLocation = true);
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted) {
+        if (!isAuto && mounted) {
           _showSnackBar('Layanan lokasi (GPS) belum aktif. Harap aktifkan GPS.', isError: true);
         }
         setState(() => _isGettingLocation = false);
@@ -258,7 +508,7 @@ class _StepLokasiState extends State<StepLokasi> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          if (mounted) {
+          if (!isAuto && mounted) {
             _showSnackBar('Izin akses lokasi ditolak.', isError: true);
           }
           setState(() => _isGettingLocation = false);
@@ -267,52 +517,64 @@ class _StepLokasiState extends State<StepLokasi> {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
+        if (!isAuto && mounted) {
           _showSnackBar('Izin lokasi ditolak permanen. Buka Pengaturan untuk mengaktifkannya.', isError: true);
         }
         setState(() => _isGettingLocation = false);
         return;
       }
 
-      // Ambil posisi GPS real-time terkini
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
+      // Ambil posisi riil perangkat (device)
+      Position? position;
+      try {
+        // Coba last known terlebih dahulu untuk perpindahan instan
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
 
-      final userPoint = LatLng(position.latitude, position.longitude);
+      // Ambil GPS presisi tinggi dari perangkat
+      try {
+        final currentPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.best,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
+        position = currentPos;
+      } catch (_) {}
 
-      setState(() {
-        _selectedPoint = userPoint;
-        _hasUserLocation = true;
-        _currentZoom = 16.0;
-      });
+      if (position != null) {
+        final userPoint = LatLng(position.latitude, position.longitude);
 
-      _mapController.move(userPoint, 16.0);
+        if (mounted) {
+          setState(() {
+            _selectedPoint = userPoint;
+            _hasUserLocation = true;
+            _currentZoom = 17.0;
+          });
 
-      // Auto-isi alamat & kecamatan via reverse geocoding
-      await _reverseGeocode(userPoint);
+          _mapController.move(userPoint, 17.0);
+        }
 
-      final label = widget.selectedKecamatanNama != null
-          ? 'Kec. ${widget.selectedKecamatanNama}, Kab. Jember'
-          : 'Kab. Jember';
+        // Auto-isi alamat & kecamatan via reverse geocoding akurat
+        await _reverseGeocode(userPoint);
 
-      widget.onCoordinateChanged?.call(userPoint.latitude, userPoint.longitude, label);
+        final label = widget.selectedKecamatanNama != null
+            ? 'Kec. ${widget.selectedKecamatanNama}, Kab. Jember'
+            : 'Kab. Jember';
 
-      if (mounted) {
-        _showSnackBar('📍 Lokasi terkini berhasil diset & koordinat terkunci!');
+        widget.onCoordinateChanged?.call(userPoint.latitude, userPoint.longitude, label);
+
+        if (mounted && !isAuto) {
+          _showSnackBar('📍 Lokasi perangkat berhasil diset & alamat akurat terisi!');
+        }
+      } else {
+        if (!isAuto && mounted) {
+          _showSnackBar('Tidak dapat mendeteksi posisi perangkat.', isError: true);
+        }
       }
     } catch (e) {
-      if (mounted) {
-        // Fallback ke pusat Kabupaten Jember jika GPS belum siap (misal di emulator)
-        _selectedPoint = jemberCenter;
-        _hasUserLocation = true;
-        _currentZoom = 15.0;
-        _mapController.move(jemberCenter, 15.0);
-        await _reverseGeocode(jemberCenter);
-        _showSnackBar('📍 Menggunakan titik pusat Kabupaten Jember (Alun-Alun Jember).');
+      if (!isAuto && mounted) {
+        _showSnackBar('Terjadi kendala saat membaca GPS: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -538,22 +800,17 @@ class _StepLokasiState extends State<StepLokasi> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          // Tombol Re-center ke Alun-Alun Jember
+                          // Tombol Re-center ke Lokasi Perangkat
                           Material(
                             color: Colors.white,
                             shape: const CircleBorder(),
                             elevation: 3,
                             child: InkWell(
                               customBorder: const CircleBorder(),
-                              onTap: () {
-                                _currentZoom = 15.0;
-                                _mapController.move(jemberCenter, 15.0);
-                                _onMapTapped(TapPosition(Offset.zero, Offset.zero), jemberCenter);
-                                _showSnackBar('Peta dipusatkan kembali ke Alun-Alun Jember.');
-                              },
+                              onTap: () => _handleSetCurrentLocation(isAuto: false),
                               child: const Padding(
                                 padding: EdgeInsets.all(7),
-                                child: Icon(Icons.refresh_rounded, size: 17, color: Color(0xFF1E293B)),
+                                child: Icon(Icons.my_location_rounded, size: 17, color: Color(0xFFE91E63)),
                               ),
                             ),
                           ),
