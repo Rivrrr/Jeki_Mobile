@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
-import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
-import 'package:infrast/features/masyarakat/laporan/presentation/screens/create_laporan_screen.dart';
+import 'package:infrast/features/masyarakat/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/create/create_laporan_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/shimmer_widgets.dart';
 
 class MyLaporanPage extends StatefulWidget {
-  const MyLaporanPage({super.key});
+  final String? initialStatus;
+  const MyLaporanPage({super.key, this.initialStatus});
 
   @override
   State<MyLaporanPage> createState() => _MyLaporanPageState();
@@ -36,7 +38,11 @@ class _MyLaporanPageState extends State<MyLaporanPage>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: _tabs.length, vsync: this);
+    _filterStatus = widget.initialStatus ?? 'semua';
+
+    // Cari index tab yang sesuai dengan status awal
+    int initialIndex = _tabs.indexWhere((t) => t.$1 == _filterStatus).clamp(0, _tabs.length - 1);
+    _tabCtrl = TabController(length: _tabs.length, vsync: this, initialIndex: initialIndex);
     _tabCtrl.addListener(_onTabChanged);
     _loadCurrentUserId();
     _loadLaporan();
@@ -127,6 +133,9 @@ class _MyLaporanPageState extends State<MyLaporanPage>
         if (_filterStatus == 'selesai') {
           return s == 'selesai' || s == 'dikonfirmasi';
         }
+        if (_filterStatus == 'diproses') {
+          return ['ditinjau', 'ditugaskan', 'dikerjakan'].contains(s);
+        }
         return s == _filterStatus;
       }).toList();
     }
@@ -164,6 +173,7 @@ class _MyLaporanPageState extends State<MyLaporanPage>
     return _allLaporan.where((l) {
       final s = _safeStr(l['status']).toLowerCase();
       if (status == 'selesai') return s == 'selesai' || s == 'dikonfirmasi';
+      if (status == 'diproses') return ['ditinjau', 'ditugaskan', 'dikerjakan'].contains(s);
       return s == status;
     }).length;
   }
@@ -221,7 +231,7 @@ class _MyLaporanPageState extends State<MyLaporanPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Riwayat Laporan',
+              'Laporan Saya',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
@@ -365,17 +375,49 @@ class _MyLaporanPageState extends State<MyLaporanPage>
         ),
       ),
       body: _loading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppColors.primary),
-                  SizedBox(height: 12),
-                  Text(
-                    'Menghubungkan ke database...',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                  ),
-                ],
+          ? ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              itemCount: 6,
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
+              itemBuilder: (_, index) => Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ShimmerWidget(width: 100, height: 20),
+                        ShimmerWidget(width: 80, height: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        ShimmerWidget(width: 78, height: 78, shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ShimmerWidget(height: 16),
+                              const SizedBox(height: 6),
+                              ShimmerWidget(height: 12),
+                              const SizedBox(height: 6),
+                              ShimmerWidget(height: 12),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ShimmerWidget(height: 12),
+                  ],
+                ),
               ),
             )
           : _error != null
@@ -386,7 +428,7 @@ class _MyLaporanPageState extends State<MyLaporanPage>
               child: _filteredList.isEmpty
                   ? _buildEmpty()
                   : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                       itemCount: _filteredList.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 14),
                       itemBuilder: (_, i) => _buildCard(_filteredList[i]),
@@ -454,62 +496,74 @@ class _MyLaporanPageState extends State<MyLaporanPage>
                 // 1. Header: Nomor Laporan & Status Badge
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.tag_rounded,
-                            size: 13,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            nomor,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B),
-                              letterSpacing: 0.3,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.tag_rounded,
+                              size: 13,
+                              color: Color(0xFF64748B),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                nomor,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 3.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusBg,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusIcon, size: 12, color: statusColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            statusLabel.isNotEmpty
-                                ? statusLabel
-                                : _capitalizeFirst(status),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: statusColor,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusIcon, size: 12, color: statusColor),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                statusLabel.isNotEmpty
+                                    ? statusLabel
+                                    : _capitalizeFirst(status),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -642,28 +696,34 @@ class _MyLaporanPageState extends State<MyLaporanPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 12.5,
-                          color: Color(0xFF94A3B8),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          tanggal,
-                          style: const TextStyle(
-                            fontSize: 11,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 12.5,
                             color: Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              tanggal,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     Row(
                       children: [
                         Text(
-                          'Lihat Riwayat',
+                          'Lihat Laporan',
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,

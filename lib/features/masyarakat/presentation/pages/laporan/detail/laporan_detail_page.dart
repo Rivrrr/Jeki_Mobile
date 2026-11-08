@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/shimmer_widgets.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/rating_dialog.dart';
 
 class LaporanDetailPage extends StatefulWidget {
   final int laporanId;
@@ -125,7 +127,7 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
-            child: const Text('âœ“ Setuju Selesai'),
+            child: const Text('✓ Setuju Selesai'),
           ),
         ],
       ),
@@ -153,6 +155,28 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
     }
   }
 
+  Future<void> _showRatingDialog() async {
+    if (_laporan == null) return;
+    
+    await showDialog(
+      context: context,
+      builder: (ctx) => RatingDialog(
+        laporanNomor: _laporan!['nomor'] ?? 'Unknown',
+        onSubmitted: (rating, comment) async {
+          debugPrint('Submitting Rating: $rating, Comment: $comment for ${_laporan!['nomor']}');
+          // In real implementation: await LaporanService.submitRating(widget.laporanId, rating, comment);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Terima kasih atas rating dan ulasan Anda!'),
+              backgroundColor: Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -170,7 +194,7 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const LaporanDetailSkeleton()
           : _error != null
               ? Center(
                   child: Column(
@@ -198,6 +222,27 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
     final canKonfirmasi = _laporan!['can_konfirmasi'] == true || status == 'selesai';
 
     if (!canKonfirmasi) return null;
+
+    if (status == 'selesai' || status == 'dikonfirmasi') {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+        ),
+        child: ElevatedButton.icon(
+          onPressed: _showRatingDialog,
+          icon: const Icon(Icons.star_rounded),
+          label: const Text('Beri Rating Kepuasan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFC107),
+            foregroundColor: Colors.black87,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -440,7 +485,7 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,9 +494,12 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
             children: [
               Icon(_statusIcon(status), color: color, size: 20),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const Spacer(),
               if (['dikerjakan', 'selesai', 'dikonfirmasi'].contains(status))
@@ -467,7 +515,7 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: persentase / 100.0,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(color),
                 minHeight: 8,
               ),
@@ -565,26 +613,27 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
-                    Icon(icon, size: 16, color: AppColors.textSecondary),
-                    const SizedBox(width: 10),
+                    Icon(icon, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
                     SizedBox(
-                      width: 80,
+                      width: 70,
                       child: Text(label,
-                          style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ),
-                    const Text('  :  ', style: TextStyle(color: AppColors.textMuted)),
+                    const Text('  :  ', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                     Expanded(
                       child: Text(value,
                           style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                              fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
               ),
-              if (!isLast) const Divider(height: 1, indent: 16, endIndent: 16),
+              if (!isLast) Divider(height: 1, indent: 16, endIndent: 16, color: AppColors.border.withValues(alpha: 0.5)),
             ],
           );
         }).toList(),

@@ -4,7 +4,6 @@ import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/pelaksana/data/tugas_service.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_list_screen.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_detail_screen.dart';
-import 'package:infrast/presentation/widgets/dialogs/user_friendly_dialog.dart';
 
 class PelaksanaHomePage extends StatefulWidget {
   const PelaksanaHomePage({super.key});
@@ -119,11 +118,6 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Pengaturan Server',
-            icon: const Icon(Icons.dns_rounded),
-            onPressed: () => UserFriendlyDialog.showServerConfigModal(context, onSaved: _loadProfile),
-          ),
-          IconButton(
             tooltip: 'Keluar',
             icon: const Icon(Icons.logout_rounded),
             onPressed: _handleLogout,
@@ -229,8 +223,8 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
                       Expanded(
                         child: Text(
                           _isServerConnected
-                              ? 'Server Backend Terhubung (Live)'
-                              : 'Server Terputus: php artisan serve mungkin mati',
+                              ? 'Layanan JEKI terhubung'
+                              : 'Layanan JEKI sedang tidak tersedia',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

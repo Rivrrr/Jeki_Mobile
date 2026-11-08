@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:infrast/core/services/geocoding_service.dart';
 import 'package:infrast/core/services/laporan_service.dart';
 
 class StepLokasi extends StatefulWidget {
@@ -47,6 +49,11 @@ class _StepLokasiState extends State<StepLokasi> {
   double _currentZoom = 15.0;
   bool _isSatellite = false;
   bool _isInteractingWithMap = false;
+  final FocusNode _alamatFocusNode = FocusNode();
+  Timer? _searchDebounce;
+  bool _isSearchingAddress = false;
+  bool _isSelectingSuggestion = false;
+  List<GeocodingSuggestion> _addressSuggestions = [];
 
   // Koordinat perkiraan pusat tiap kecamatan di Kab. Jember (fallback offline)
   static const Map<String, LatLng> _jemberKecamatanCentroids = {
@@ -96,6 +103,14 @@ class _StepLokasiState extends State<StepLokasi> {
     }
     _loadKecamatan();
 
+    _alamatFocusNode.addListener(() {
+      if (!_alamatFocusNode.hasFocus && _addressSuggestions.isNotEmpty) {
+        setState(() {
+          _addressSuggestions = [];
+        });
+      }
+    });
+
     // Otomatis pusatkan titik ke posisi riil perangkat (device) saat form lokasi dibuka
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasUserLocation && (widget.latitude == null || widget.longitude == null)) {
@@ -120,6 +135,13 @@ class _StepLokasiState extends State<StepLokasi> {
         _reverseGeocode(newPoint);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _alamatFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadKecamatan() async {
@@ -174,6 +196,99 @@ class _StepLokasiState extends State<StepLokasi> {
     _showSnackBar(_isSatellite ? 'Mode Peta Satelit Aktif' : 'Mode Peta Standar Google Aktif');
   }
 
+  Future<void> _searchAddressSuggestions(String query) async {
+    final keyword = query.trim();
+
+    if (keyword.length < 3) {
+      if (!mounted) return;
+      setState(() {
+        _addressSuggestions = [];
+        _isSearchingAddress = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isSearchingAddress = true;
+    });
+
+    try {
+      final suggestions = await GeocodingService.searchAddress(
+        keyword,
+        nearLat: _selectedPoint.latitude,
+        nearLng: _selectedPoint.longitude,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _addressSuggestions = suggestions;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _addressSuggestions = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingAddress = false;
+        });
+      }
+    }
+  }
+
+  void _onAlamatChanged(String value) {
+    if (_isSelectingSuggestion) return;
+
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _searchAddressSuggestions(value);
+    });
+  }
+
+  Future<void> _selectAddressSuggestion(GeocodingSuggestion suggestion) async {
+    _isSelectingSuggestion = true;
+    _searchDebounce?.cancel();
+
+    final selected = LatLng(suggestion.latitude, suggestion.longitude);
+
+    widget.alamatController.text = suggestion.shortAddress.isNotEmpty
+        ? suggestion.shortAddress
+        : suggestion.displayName;
+
+    if (mounted) {
+      setState(() {
+        _selectedPoint = selected;
+        _hasUserLocation = true;
+        _currentZoom = 17.0;
+        _detectedAddress = widget.alamatController.text.trim();
+        _addressSuggestions = [];
+      });
+    }
+
+    _mapController.move(selected, 17.0);
+
+    try {
+      await _reverseGeocode(selected);
+
+      widget.onCoordinateChanged?.call(
+        selected.latitude,
+        selected.longitude,
+        widget.selectedKecamatanNama != null
+            ? 'Kec. ${widget.selectedKecamatanNama}, Kab. Jember'
+            : 'Kab. Jember',
+      );
+    } finally {
+      _isSelectingSuggestion = false;
+      if (mounted) {
+        _alamatFocusNode.unfocus();
+        _showSnackBar('Alamat dipilih dan koordinat lokasi diperbarui.');
+      }
+    }
+  }
+
   /// Menemukan kecamatan di Kabupaten Jember yang paling mendekati koordinat
   Map<String, dynamic>? _findClosestKecamatan(LatLng point) {
     if (_kecamatanList.isEmpty) return null;
@@ -219,18 +334,28 @@ class _StepLokasiState extends State<StepLokasi> {
   String _formatNamaJalan(String raw) {
     var road = raw.trim();
     final lower = road.toLowerCase();
+    
+    // Hilangkan redundansi 'Jalan' atau 'Jl.' di awal jika ada
     if (lower.startsWith('jalan ')) {
-      road = 'Jl. ${road.substring(6)}';
-    } else if (!lower.startsWith('jl.') &&
-        !lower.startsWith('jl ') &&
-        !lower.startsWith('gang ') &&
-        !lower.startsWith('gg.') &&
-        !lower.startsWith('gg ') &&
-        !lower.startsWith('lorong ') &&
-        !lower.startsWith('blok ') &&
-        !lower.startsWith('dusun ') &&
-        !lower.startsWith('alun-alun') &&
-        !lower.startsWith('kawasan')) {
+      road = road.substring(6).trim();
+    } else if (lower.startsWith('jl. ')) {
+      road = road.substring(4).trim();
+    } else if (lower.startsWith('jl ')) {
+      road = road.substring(3).trim();
+    }
+
+    // Standarisasi menjadi 'Jl.'
+    if (road.isEmpty) return 'Lokasi tidak dikenal';
+    
+    final roadLower = road.toLowerCase();
+    if (!roadLower.startsWith('gang ') &&
+        !roadLower.startsWith('gg.') &&
+        !roadLower.startsWith('gg ') &&
+        !roadLower.startsWith('lorong ') &&
+        !roadLower.startsWith('blok ') &&
+        !roadLower.startsWith('dusun ') &&
+        !roadLower.startsWith('alun-alun') &&
+        !roadLower.startsWith('kawasan')) {
       road = 'Jl. $road';
     }
     return road;
@@ -583,22 +708,9 @@ class _StepLokasiState extends State<StepLokasi> {
     }
   }
 
-  void _onMapTapped(TapPosition _, LatLng point) async {
-    setState(() {
-      _selectedPoint = point;
-      _hasUserLocation = true;
-    });
-
+  void _onMapTapped(TapPosition _, LatLng point) {
+    // Hanya menggeser kamera, tidak mengubah lokasi marker/alamat
     _mapController.move(point, _mapController.camera.zoom);
-
-    // Auto update alamat dan kecamatan saat titik dipindah
-    await _reverseGeocode(point);
-
-    final label = widget.selectedKecamatanNama != null
-        ? 'Kec. ${widget.selectedKecamatanNama}, Kab. Jember'
-        : 'Kab. Jember';
-
-    widget.onCoordinateChanged?.call(point.latitude, point.longitude, label);
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -733,7 +845,7 @@ class _StepLokasiState extends State<StepLokasi> {
                     Positioned(
                       top: 10,
                       left: 10,
-                      right: 110,
+                      right: 140,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -962,8 +1074,8 @@ class _StepLokasiState extends State<StepLokasi> {
                     child: CircularProgressIndicator(color: Color(0xFFE91E63), strokeWidth: 2),
                   ),
                 )
-              : DropdownButtonFormField<int>(
-                  value: widget.selectedKecamatanId,
+                : DropdownButtonFormField<int>(
+                  initialValue: widget.selectedKecamatanId,
                   decoration: InputDecoration(
                     hintText: 'Pilih kecamatan lokasi',
                     hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
@@ -1052,18 +1164,76 @@ class _StepLokasiState extends State<StepLokasi> {
           const SizedBox(height: 8),
           TextField(
             controller: widget.alamatController,
+            focusNode: _alamatFocusNode,
             maxLines: 2,
+            onChanged: _onAlamatChanged,
             decoration: InputDecoration(
               hintText: 'Contoh: Jl. Kalimantan No. 37, Sumbersari',
               hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
               filled: true,
               fillColor: Colors.white,
+              suffixIcon: _isSearchingAddress
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 19),
               contentPadding: const EdgeInsets.all(16),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE91E63))),
             ),
           ),
+
+          if (_addressSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: ListView.separated(
+                itemCount: _addressSuggestions.length,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                itemBuilder: (context, index) {
+                  final suggestion = _addressSuggestions[index];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.place_outlined, size: 18, color: Color(0xFFE91E63)),
+                    title: Text(
+                      suggestion.shortAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    subtitle: Text(
+                      suggestion.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                    onTap: () => _selectAddressSuggestion(suggestion),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Pilih hasil pencarian agar titik peta dan koordinat mengikuti alamat jalan.',
+              style: TextStyle(fontSize: 10.8, color: Color(0xFF64748B)),
+            ),
+          ],
 
           const SizedBox(height: 16),
 

@@ -106,13 +106,13 @@ class StepFoto extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isMinPhotoMet
-                      ? const Color(0xFF16A34A).withOpacity(0.3)
-                      : const Color(0xFFE91E63).withOpacity(0.3),
+                      ? const Color(0xFF16A34A).withValues(alpha: 0.3)
+                      : const Color(0xFFE91E63).withValues(alpha: 0.3),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: Colors.black.withValues(alpha: 0.02),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -139,7 +139,7 @@ class StepFoto extends StatelessWidget {
                             boxShadow: [
                               BoxShadow(
                                 color: (isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE91E63))
-                                    .withOpacity(0.35),
+                                    .withValues(alpha: 0.35),
                                 blurRadius: 14,
                                 offset: const Offset(0, 6),
                               ),
@@ -217,43 +217,54 @@ class StepFoto extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Foto Bukti Lapangan',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isMinPhotoMet ? const Color(0xFFF0FDF4) : const Color(0xFFFFF1F2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isMinPhotoMet ? const Color(0xFFBBF7D0) : const Color(0xFFFECDD3),
+                const Flexible(
+                  child: Text(
+                    'Foto Bukti Lapangan',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isMinPhotoMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                        size: 13,
-                        color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isMinPhotoMet ? const Color(0xFFF0FDF4) : const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isMinPhotoMet ? const Color(0xFFBBF7D0) : const Color(0xFFFECDD3),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isMinPhotoMet
-                            ? '${photos.length}/5 (Min. 3 Terpenuhi ✓)'
-                            : '${photos.length}/3 Foto (Kurang $remainingPhotos lagi)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isMinPhotoMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                          size: 13,
                           color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            isMinPhotoMet
+                                ? '${photos.length}/5 (Min. 3 ✓)'
+                                : '${photos.length}/3 (Kurang $remainingPhotos)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: isMinPhotoMet ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -319,7 +330,7 @@ class StepFoto extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF16A34A).withOpacity(0.85),
+                                color: const Color(0xFF16A34A).withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Row(
@@ -347,7 +358,7 @@ class StepFoto extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.7),
+                                color: Colors.black.withValues(alpha: 0.7),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Column(

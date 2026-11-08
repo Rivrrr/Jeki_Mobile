@@ -1,11 +1,13 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
-import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
 import 'package:infrast/presentation/widgets/animated_blob_background.dart';
+import 'package:infrast/presentation/widgets/dialogs/user_friendly_dialog.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -144,14 +146,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       }
+    } else if (result['isNetworkError'] == true) {
+      UserFriendlyDialog.show(
+        context: context,
+        type: DialogType.error,
+        title: ApiConstants.userNetworkTitle,
+        message: ApiConstants.userNetworkMessage,
+        solutionSteps: ApiConstants.userNetworkSteps,
+        primaryButtonText: 'Coba Lagi',
+      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      UserFriendlyDialog.show(
+        context: context,
+        type: DialogType.error,
+        title: 'Pendaftaran Belum Berhasil',
+        message: result['message'] ?? 'Terjadi kendala saat membuat akun. Silakan coba lagi.',
+        solutionSteps: const [
+          'Pastikan data yang diisi sudah benar.',
+          'Jika email sudah terdaftar, silakan masuk dengan akun tersebut.',
+        ],
+        primaryButtonText: 'Coba Lagi',
       );
     }
   }

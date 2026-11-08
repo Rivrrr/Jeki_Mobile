@@ -6,7 +6,7 @@ import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
-import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 
 class SplashScreen extends StatefulWidget {

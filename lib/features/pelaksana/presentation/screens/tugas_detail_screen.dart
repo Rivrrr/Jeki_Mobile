@@ -535,6 +535,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                               : () async {
                                   setDialogState(() => isCapturing = true);
                                   final foto = await FotoHelper.ambilFotoKamera(
+                                    context: context,
                                     kecamatanNama: kecamatanNama,
                                   );
                                   setDialogState(() {
@@ -604,6 +605,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                                       onTap: () async {
                                         setDialogState(() => isCapturing = true);
                                         final foto = await FotoHelper.ambilFotoKamera(
+                                          context: context,
                                           kecamatanNama: kecamatanNama,
                                         );
                                         setDialogState(() {

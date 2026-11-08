@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/data/laporan_service.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
 
 class NotifikasiPage extends StatefulWidget {
@@ -11,7 +11,7 @@ class NotifikasiPage extends StatefulWidget {
 }
 
 class _NotifikasiPageState extends State<NotifikasiPage> {
-  List<Map<String, dynamic>> _laporan = [];
+  List<Map<String, dynamic>> _notifications = [];
   bool _loading = true;
   String? _error;
 
@@ -27,11 +27,69 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     if (!mounted) return;
     if (result['success'] == true) {
       final raw = result['data'] is Map && (result['data'] as Map).containsKey('data') ? result['data']['data'] : result['data'];
-      final data = (raw is List) ? List<Map<String, dynamic>>.from(raw) : <Map<String, dynamic>>[];
-      setState(() { _laporan = data; _loading = false; });
+      final reports = (raw is List) ? List<Map<String, dynamic>>.from(raw) : <Map<String, dynamic>>[];
+      
+      setState(() { 
+        _notifications = _flattenReportsToNotifications(reports);
+        _loading = false; 
+      });
     } else {
       setState(() { _error = result['message'] ?? 'Gagal memuat.'; _loading = false; });
     }
+  }
+
+  List<Map<String, dynamic>> _flattenReportsToNotifications(List<Map<String, dynamic>> reports) {
+    List<Map<String, dynamic>> allNotifs = [];
+
+    for (var r in reports) {
+      final reportId = r['id'];
+      final nomor = r['nomor'] ?? '-';
+      final riwayat = r['riwayat'] as List? ?? [];
+
+      if (riwayat.isEmpty) {
+        allNotifs.add({
+          'id': 'init_$reportId',
+          'reportId': reportId,
+          'message': 'Laporan $nomor telah berhasil dikirim dan sedang menunggu verifikasi.',
+          'timestamp': r['created_at'],
+          'isRead': false,
+          'type': 'info',
+        });
+      } else {
+        for (var h in riwayat) {
+          final status = h['status_sesudah'] as String? ?? '';
+          final catatan = h['catatan'] as String? ?? '';
+          final timestamp = h['tanggal'] ?? h['created_at'];
+          
+          String message = _getMessageForStatus(status, catatan, nomor);
+          
+          allNotifs.add({
+            'id': '${reportId}_$timestamp',
+            'reportId': reportId,
+            'message': message,
+            'timestamp': timestamp,
+            'isRead': false,
+            'type': 'update',
+          });
+        }
+      }
+    }
+    allNotifs.sort((a, b) => (b['timestamp'] as String).compareTo(a['timestamp'] as String));
+    return allNotifs;
+  }
+
+  String _getMessageForStatus(String status, String catatan, String nomor) {
+    if (catatan.isNotEmpty) return 'Update $nomor: $catatan';
+    
+    return switch (status.toLowerCase()) {
+      'baru'         => 'Laporan $nomor telah diterima dan sedang diverifikasi.',
+      'ditinjau'     => 'Laporan $nomor sedang ditinjau oleh admin.',
+      'ditugaskan'   => 'Laporan $nomor telah ditugaskan kepada petugas.',
+      'dikerjakan'   => 'Laporan $nomor sedang dalam proses pengerjaan.',
+      'selesai'      => 'Laporan $nomor telah selesai ditangani.',
+      'dikonfirmasi' => 'Laporan $nomor telah dikonfirmasi selesai.',
+      _              => 'Terdapat pembaruan pada laporan $nomor.',
+    };
   }
 
   @override
@@ -42,7 +100,7 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Riwayat Laporan',
+          'Notifikasi',
           style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 18),
         ),
         actions: [
@@ -57,227 +115,106 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _error != null
               ? _buildError()
-              : _laporan.isEmpty
+              : _notifications.isEmpty
                   ? _buildEmpty()
                   : RefreshIndicator(
                       onRefresh: _load,
                       color: AppColors.primary,
                       child: ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                        itemCount: _laporan.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _buildNotifCard(_laporan[i]),
+                        itemCount: _notifications.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _buildNotificationItem(_notifications[i]),
                       ),
                     ),
     );
   }
 
-  Widget _buildNotifCard(Map<String, dynamic> l) {
-    final status = l['status'] as String? ?? 'baru';
-    final (statusColor, statusBg) = _statusColors(status);
-    final foto = l['foto'] as List?;
-    final fotoUrl = (foto != null && foto.isNotEmpty) ? foto.first['url'] as String? : null;
-    final riwayat = l['riwayat'] as List? ?? [];
-    // Apakah ada update baru (status berubah dalam 3 hari terakhir)
-    final hasNew = _isRecentUpdate(riwayat);
-
+  Widget _buildNotificationItem(Map<String, dynamic> n) {
+    final isRead = n['isRead'] as bool;
+    final timestamp = n['timestamp'] as String? ?? '';
+    
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => LaporanDetailPage(laporanId: l['id'])),
-      ),
+      onTap: () {
+        setState(() {
+          n['isRead'] = true;
+        });
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => LaporanDetailPage(laporanId: n['reportId'])),
+        );
+      },
       child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: hasNew
-              ? Border.all(color: AppColors.primary.withOpacity(0.4), width: 1.5)
-              : null,
+          color: isRead ? Colors.white : AppColors.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: isRead 
+              ? Border.all(color: Colors.black.withValues(alpha: 0.05), width: 1)
+              : Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Column(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Baris utama
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: isRead ? Colors.transparent : AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Thumbnail
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: SizedBox(
-                          width: 70,
-                          height: 70,
-                          child: fotoUrl != null
-                              ? Image.network(fotoUrl, fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => _thumb())
-                              : _thumb(),
-                        ),
-                      ),
-                      if (hasNew)
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                l['nomor'] ?? '',
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: statusBg,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                l['status_label'] ?? _capitalize(status),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l['judul'] ?? '-',
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on_outlined, size: 12, color: AppColors.textSecondary),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                l['kecamatan']?['nama'] ?? l['lokasi'] ?? '-',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  Text(
+                    n['message'] ?? '-',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                      color: AppColors.textPrimary,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatTimestamp(timestamp),
+                    style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                  ),
                 ],
               ),
             ),
-
-            // Progress bar jika dikerjakan
-            if (status == 'dikerjakan') ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: ((l['persentase'] as num?)?.toDouble() ?? 0) / 100,
-                          backgroundColor: AppColors.statusProcessing.withOpacity(0.15),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.statusProcessing),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${(l['persentase'] as num?)?.toInt() ?? 0}%',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.statusProcessing,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // Update terbaru dari riwayat
-            if (riwayat.isNotEmpty) ...[
-              Container(
-                margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getLatestUpdate(riwayat),
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else
-              const SizedBox(height: 14),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _thumb() {
-    return Container(
-      color: AppColors.accentPink,
-      child: const Icon(Icons.photo_camera_outlined, color: AppColors.primary, size: 24),
-    );
+  String _formatTimestamp(String ts) {
+    if (ts.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(ts);
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inDays == 0 && diff.inHours < 24) {
+        if (diff.inMinutes > 0) return '${diff.inMinutes} menit yang lalu';
+        return 'Baru saja';
+      }
+      if (diff.inDays < 7) return '${diff.inDays} hari yang lalu';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return ts;
+    }
   }
 
   Widget _buildEmpty() {
@@ -296,11 +233,11 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
                   child: const Icon(Icons.notifications_none_rounded, color: AppColors.primary, size: 40),
                 ),
                 const SizedBox(height: 20),
-                const Text('Belum Ada Laporan',
+                const Text('Belum Ada Notifikasi',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 const Text(
-                  'Riwayat laporan Anda akan\nmuncul di sini.',
+                  'Notifikasi pembaruan laporan Anda\nakan muncul di sini.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
                 ),
@@ -335,46 +272,4 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
       ),
     );
   }
-
-  bool _isRecentUpdate(List riwayat) {
-    if (riwayat.isEmpty) return false;
-    try {
-      final last = riwayat.last as Map;
-      final tanggal = last['tanggal'] ?? last['created_at'];
-      if (tanggal == null) return false;
-      final dt = DateTime.parse(tanggal.toString());
-      return DateTime.now().difference(dt).inDays <= 3;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  String _getLatestUpdate(List riwayat) {
-    try {
-      final last = riwayat.last as Map;
-      final status = last['status_sesudah'] as String? ?? '';
-      final catatan = last['catatan'] as String? ?? '';
-      if (catatan.isNotEmpty) return 'Update: $catatan';
-      return 'Status diperbarui: ${_capitalize(status)}';
-    } catch (_) {
-      return 'Ada pembaruan status';
-    }
-  }
-
-  (Color, Color) _statusColors(String status) {
-    return switch (status) {
-      'baru'         => (AppColors.statusPending, AppColors.statusPendingBg),
-      'ditinjau'     => (AppColors.statusVerification, AppColors.statusVerificationBg),
-      'ditugaskan'   => (AppColors.statusProcessing, AppColors.statusProcessingBg),
-      'dikerjakan'   => (AppColors.statusProcessing, AppColors.statusProcessingBg),
-      'selesai'      => (AppColors.statusCompleted, AppColors.statusCompletedBg),
-      'dikonfirmasi' => (AppColors.statusCompleted, AppColors.statusCompletedBg),
-      _              => (AppColors.textSecondary, AppColors.border),
-    };
-  }
-
-  String _capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
-
-
-

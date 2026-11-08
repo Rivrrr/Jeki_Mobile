@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
+import 'package:infrast/core/services/laporan_service.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
-import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
-import 'package:infrast/features/masyarakat/home/presentation/widgets/home_widgets.dart';
-import 'package:infrast/features/masyarakat/laporan/presentation/screens/create_laporan_screen.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/home_widgets.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/create/create_laporan_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/list/my_laporan_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/notifikasi/notifikasi_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/peta/peta_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/profil/profil_page.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final void Function(int tabIndex)? onSwitchTab;
+
+  const HomeScreen({super.key, this.onSwitchTab});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -23,9 +26,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _myReports = [];
   List<Map<String, dynamic>> _nearbyReports = [];
   bool _loadingReports = true;
-  int _countTotal = 0;
-  int _countDiproses = 0;
-  int _countSelesai = 0;
   int _notifCount = 0;
   String? _userName;
 
@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    LaporanService.syncPendingReports();
     _loadUser();
     _loadUserLocation();
     _loadReports();
@@ -95,15 +96,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final list = (rawMy is List)
           ? List<Map<String, dynamic>>.from(rawMy)
           : <Map<String, dynamic>>[];
-      int total = list.length;
-      int diproses = list.where((r) {
-        final s = (r['status'] as String? ?? '').toLowerCase();
-        return ['ditinjau', 'ditugaskan', 'dikerjakan'].contains(s);
-      }).length;
-      int selesai = list.where((r) {
-        final s = (r['status'] as String? ?? '').toLowerCase();
-        return ['selesai', 'dikonfirmasi'].contains(s);
-      }).length;
 
       // Hitung notif: laporan dengan update dalam 3 hari terakhir
       int notif = list.where((r) {
@@ -121,9 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _myReports = list;
-        _countTotal = total;
-        _countDiproses = diproses;
-        _countSelesai = selesai;
         _notifCount = notif;
         _loadingReports = false;
       });
@@ -200,20 +189,32 @@ class _HomeScreenState extends State<HomeScreen> {
         .then((_) => _loadReports());
   }
 
-  void _openMyLaporan() {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const MyLaporanPage()))
-        .then((_) => _loadReports());
+  void _openMyLaporan(String status) {
+    if (widget.onSwitchTab != null) {
+      widget.onSwitchTab!(3);
+    } else {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => MyLaporanPage(initialStatus: status)))
+          .then((_) => _loadReports());
+    }
   }
 
   void _openPeta() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PetaPage()));
+    if (widget.onSwitchTab != null) {
+      widget.onSwitchTab!(1);
+    } else {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PetaPage()));
+    }
   }
 
   void _openNotifikasi() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const NotifikasiPage()))
         .then((_) => _loadReports());
+  }
+
+  void _openProfil() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfilPage()));
   }
 
   void _openDetail(int id) {
@@ -269,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     HomeHeader(
                       onNotifTap: _openNotifikasi,
+                      onProfilTap: _openProfil,
                       notifCount: _notifCount,
                       userName: _userName,
                     ),
@@ -282,65 +284,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 48),
 
-                // 2. KPI Cards â€” data real
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      KPICard(
-                        icon: Icons.description_outlined,
-                        iconColor: AppColors.primary,
-                        bgColor: AppColors.accentPink,
-                        count: _loadingReports ? '-' : _countTotal.toString(),
-                        label: 'Laporan Saya',
-                      ),
-                      const SizedBox(width: 12),
-                      KPICard(
-                        icon: Icons.settings_outlined,
-                        iconColor: Colors.orange,
-                        bgColor: const Color(0xFFFFF3E0),
-                        count: _loadingReports ? '-' : _countDiproses.toString(),
-                        label: 'Diproses',
-                      ),
-                      const SizedBox(width: 12),
-                      KPICard(
-                        icon: Icons.check_circle_outline,
-                        iconColor: Colors.green,
-                        bgColor: const Color(0xFFE8F5E9),
-                        count: _loadingReports ? '-' : _countSelesai.toString(),
-                        label: 'Selesai',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
                 // 3. Aksi Cepat
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      QuickActionItem(
-                        icon: Icons.camera_alt_rounded,
-                        label: 'Lapor\nSekarang',
+                      Expanded(
+                        child: QuickActionItem(
+                          icon: Icons.camera_alt_rounded,
+                          label: 'Lapor\nSekarang',
                         isPrimary: true,
                         onTap: _openCreateLaporan,
                       ),
-                      QuickActionItem(
-                        icon: Icons.assignment_outlined,
-                        label: 'Riwayat\nLaporan',
-                        onTap: _openMyLaporan,
                       ),
-                      QuickActionItem(
-                        icon: Icons.map_outlined,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: QuickActionItem(
+                          icon: Icons.assignment_outlined,
+                        label: 'Laporan\nSaya',
+                        onTap: () => _openMyLaporan('semua'),
+                      ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: QuickActionItem(
+                          icon: Icons.map_outlined,
                         label: 'Peta\nLokasi',
                         onTap: _openPeta,
                       ),
-                      QuickActionItem(
-                        icon: Icons.notifications_outlined,
-                        label: 'Riwayat\nUpdate',
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: QuickActionItem(
+                          icon: Icons.notifications_outlined,
+                        label: 'Update\nLaporan',
                         onTap: _openNotifikasi,
+                      ),
                       ),
                     ],
                   ),
@@ -356,20 +337,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Laporan Terbaru Saya',
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Laporan Terbaru Saya',
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                               ),
                               SizedBox(height: 4),
                               Text('Update real-time',
                                   style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           TextButton(
-                            onPressed: _openMyLaporan,
+                            onPressed: () => _openMyLaporan('semua'),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: const Size(0, 0),
@@ -456,18 +440,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Laporan di Sekitar',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _userLat != null ? 'Radius 5 km dari lokasi Anda' : 'Aktifkan GPS untuk filter lokasi',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                                ),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Laporan di Sekitar',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _userLat != null ? 'Radius 5 km dari lokasi Anda' : 'Aktifkan GPS untuk filter lokasi',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             TextButton(
                               onPressed: _openPeta,
                               style: TextButton.styleFrom(
@@ -483,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        height: 170,
+                        height: 184,
                         child: _nearbyReports.isEmpty
                             ? ListView(
                                 scrollDirection: Axis.horizontal,
@@ -540,9 +529,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 // 6. Contribution Banner â€” data real
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ContributionBanner(totalSelesai: _countSelesai),
+                  child: ContributionBanner(
+                    totalSelesai: _myReports.where((r) {
+                      final s = (r['status'] as String? ?? '').toLowerCase();
+                      return ['selesai', 'dikonfirmasi'].contains(s);
+                    }).length,
+                  ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 80),
               ],
             ),
           ),

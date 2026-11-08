@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:infrast/core/services/api_client.dart';
+import 'package:infrast/core/database/local_db_helper.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
+import 'dart:io';
 
 /// Service untuk operasi laporan masyarakat:
 /// - Fetch kategori & kecamatan dari API
@@ -76,5 +79,47 @@ class LaporanService {
       fields: fields,
       files: files.isEmpty ? null : files,
     );
+  }
+
+  static Future<void> syncPendingReports() async {
+    final pending = await LocalDbHelper.instance.getPendingReports();
+    if (pending.isEmpty) return;
+
+    for (final report in pending) {
+      try {
+        final fotoPaths = (report['foto_paths'] as String).split(',');
+        final photos = <PhotoItem>[];
+        for (final path in fotoPaths) {
+          if (path.isNotEmpty) {
+            final file = File(path);
+            if (await file.exists()) {
+              final bytes = await file.readAsBytes();
+              photos.add(PhotoItem(
+                name: path.split('/').last,
+                bytes: bytes,
+                path: path,
+              ));
+            }
+          }
+        }
+
+        final result = await createLaporan(
+          kategoriId: report['kategori_id'],
+          kecamatanId: report['kecamatan_id'],
+          judul: report['judul'],
+          deskripsi: report['deskripsi'],
+          lokasi: report['lokasi'],
+          latitude: report['latitude'],
+          longitude: report['longitude'],
+          foto: photos,
+        );
+
+        if (result['success'] == true) {
+          await LocalDbHelper.instance.deletePendingReport(report['id']);
+        }
+      } catch (e) {
+        debugPrint('Gagal sinkronisasi laporan ${report['id']}: $e');
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/auth/presentation/screens/register_screen.dart';
-import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_list_screen.dart';
 import 'package:infrast/features/splash/presentation/screens/splash_screen.dart';
@@ -9,6 +9,7 @@ import 'package:infrast/features/masyarakat/presentation/pages/notifikasi/notifi
 import 'package:infrast/features/masyarakat/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/peta/peta_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/profil/profil_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
 
 class AppRoutes {
   static const String splash           = '/';
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String register         = '/register';
   static const String home             = '/home';
   static const String laporan          = '/laporan';
+  static const String laporanDetail    = '/laporan/detail';
   static const String peta             = '/peta';
   static const String notifikasi       = '/notifikasi';
   static const String profil           = '/profil';
@@ -36,6 +38,11 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
       case home:
         return MaterialPageRoute(builder: (_) => const MainNavigation());
+      case laporan:
+        return MaterialPageRoute(builder: (_) => const MainNavigation()); // Adjusted as typically laporan is part of home
+      case laporanDetail:
+        final laporanId = settings.arguments as int;
+        return MaterialPageRoute(builder: (_) => LaporanDetailPage(laporanId: laporanId));
       case peta:
         return MaterialPageRoute(builder: (_) => const PetaPage());
       case notifikasi:

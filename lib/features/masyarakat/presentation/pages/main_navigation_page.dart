@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/masyarakat/home/presentation/screens/home_screen.dart';
-import 'package:infrast/features/masyarakat/laporan/presentation/screens/create_laporan_screen.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/home/home_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/create/create_laporan_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/list/my_laporan_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/peta/peta_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/profil/profil_page.dart';
@@ -16,12 +16,18 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = const [
-    HomeScreen(),
-    PetaPage(),
-    SizedBox.shrink(), // placeholder FAB
-    MyLaporanPage(), // Laporan Saya (index 3)
-    ProfilPage(),
+  void _onSwitchTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  late final List<Widget> _pages = [
+    HomeScreen(onSwitchTab: _onSwitchTab),
+    const PetaPage(),
+    const SizedBox.shrink(), // placeholder FAB
+    const MyLaporanPage(), // Laporan Saya (index 3)
+    const ProfilPage(),
   ];
 
   void _openCreateLaporan() {
@@ -77,7 +83,7 @@ class _MainNavigationState extends State<MainNavigation> {
               _buildNavItem(Icons.home_rounded, 'Beranda', 0),
               _buildNavItem(Icons.map_rounded, 'Peta', 1),
               const SizedBox(width: 40),
-              _buildNavItem(Icons.assignment_outlined, 'Riwayat', 3),
+              _buildNavItem(Icons.assignment_outlined, 'Laporan', 3),
               _buildNavItem(Icons.person_outline, 'Profil', 4),
             ],
           ),

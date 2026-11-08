@@ -59,7 +59,7 @@ class ApiClient {
         'success':        false,
         'statusCode':     response.statusCode,
         'data':           null,
-        'message':        'Format respons tidak valid dari server (Status ${response.statusCode}).',
+        'message':        'Layanan sedang sibuk. Silakan coba beberapa saat lagi.',
         'isNetworkError': false,
       };
     }
@@ -181,7 +181,7 @@ class ApiClient {
       'isNetworkError': true,
       'url':            url,
       'data':           null,
-      'message':        'Waktu koneksi ke server habis (Timeout) saat menghubungi $url. Pastikan server backend aktif dan IP sudah sesuai.',
+      'message':        ApiConstants.userNetworkMessage,
     };
   }
 
@@ -204,8 +204,8 @@ class ApiClient {
       'url':            url,
       'data':           null,
       'message': isConnErr
-          ? 'Tidak dapat terhubung ke server Laravel ($url). Pastikan server backend aktif (php artisan serve).'
-          : 'Terjadi kendala koneksi: ${e.toString()}',
+          ? ApiConstants.userNetworkMessage
+          : 'Terjadi kendala. Silakan coba lagi beberapa saat lagi.',
     };
   }
 }

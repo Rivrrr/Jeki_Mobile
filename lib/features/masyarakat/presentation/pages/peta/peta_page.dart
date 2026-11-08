@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
-import 'package:infrast/features/masyarakat/home/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/data/laporan_service.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/detail/laporan_detail_page.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -29,6 +29,8 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
   bool _isLoadingLaporan = true;
   bool _mapReady = false;
   int? _currentUserId;
+  double? _heading;
+  bool _isFollowingLocation = true;
 
   List<Map<String, dynamic>> _laporanList = [];
   Map<String, dynamic>? _selectedLaporan;
@@ -39,6 +41,7 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
   // Animasi pulsing untuk marker GPS pengguna
   late AnimationController _pulseController;
   StreamSubscription<Position>? _positionStreamSub;
+  StreamSubscription<CompassEvent>? _compassStreamSub;
 
   @override
   void initState() {
@@ -62,6 +65,13 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
     _initLocation();
     _loadLaporan();
     _loadCurrentUser();
+    _initCompass();
+  }
+
+  void _initCompass() {
+    _compassStreamSub = FlutterCompass.events?.listen((event) {
+      if (mounted) setState(() => _heading = event.heading);
+    });
   }
 
   Future<void> _loadCurrentUser() async {
@@ -75,6 +85,7 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _positionStreamSub?.cancel();
+    _compassStreamSub?.cancel();
     _pulseController.dispose();
     _sheetAnimCtrl.dispose();
     super.dispose();
@@ -138,7 +149,7 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
       // 4. Ambil posisi akurat real-time
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.best,
           timeLimit: Duration(seconds: 10),
         ),
       );
@@ -150,7 +161,7 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
         _locationLoaded = true;
       });
 
-      if (_mapReady) {
+      if (_mapReady && _isFollowingLocation) {
         _mapController.move(accurate, 15.5);
       }
 
@@ -159,15 +170,25 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
       _positionStreamSub =
           Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 5, // update setiap bergeser 5 meter
+              accuracy: LocationAccuracy.best,
+              distanceFilter: 10, // update setiap bergeser 10 meter untuk stabilitas
             ),
           ).listen((Position newPos) {
             if (mounted) {
-              setState(() {
-                _userLocation = LatLng(newPos.latitude, newPos.longitude);
-                _locationLoaded = true;
-              });
+              final newLoc = LatLng(newPos.latitude, newPos.longitude);
+              
+              // Stabilitas: Hanya update state jika posisi benar-benar berubah signifikan
+              if (newLoc != _userLocation) {
+                setState(() {
+                  _userLocation = newLoc;
+                  _locationLoaded = true;
+                });
+
+                // Hanya gerakkan kamera jika mode follow aktif
+                if (_mapReady && _isFollowingLocation) {
+                  _mapController.move(newLoc, 15.5);
+                }
+              }
             }
           });
     } catch (_) {
@@ -357,23 +378,29 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Stack(
-        children: [
-          // ── Peta Google Maps Standard View ──────────────────────────────
+      children: [
+        // ── Peta Google Maps Standard View ──────────────────────────────
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _userLocation,
               initialZoom: 14.5,
+              minZoom: 5.0,
+              maxZoom: 18.0,
               onMapReady: () {
                 _mapReady = true;
-                if (_locationLoaded) {
+                if (_locationLoaded && _isFollowingLocation) {
                   _mapController.move(_userLocation, 15.0);
                 }
               },
-              onTap: (_, _) => _closeSheet(),
+              onTap: (_, _) {
+                _closeSheet();
+                setState(() => _isFollowingLocation = false);
+              },
             ),
             children: [
               TileLayer(
@@ -509,6 +536,33 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
                 children: [
                   Row(
                     children: [
+                      if (canPop)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: AppColors.textPrimary,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -521,8 +575,7 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 12,
-                                offset: const Offset(0, 3),
+                                blurRadius: 12,                                  offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -672,45 +725,61 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
 
           // ── Legenda Status & Lokasi GPS ─────────────────────────────────
           Positioned(
-            top:
-                MediaQuery.of(context).padding.top +
-                (_isGpsDisabled ? 120 : 76),
-            right: 12,
+            top: 120,
+            right: 20,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 8,
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
+                border: Border.all(color: AppColors.border, width: 0.5),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Legenda',
+                    'Keterangan Warna',
                     style: TextStyle(
-                      fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  _legendItem(const Color(0xFF1D4ED8), 'Lokasi Anda (GPS)'),
-                  const Divider(height: 8, thickness: 0.5),
-                  _legendItem(AppColors.statusPending, 'Baru'),
-                  _legendItem(const Color(0xFFE91E63), 'Laporan Anda'),
-                  _legendItem(const Color(0xFF334155), 'Laporan Pengguna Lain'),
-                  _legendItem(AppColors.statusVerification, 'Ditinjau'),
-                  _legendItem(AppColors.statusProcessing, 'Dikerjakan'),
-                  _legendItem(AppColors.statusCompleted, 'Selesai'),
+                  const SizedBox(height: 12),
+                  _buildLegendItem(
+                    const Color(0xFFF59E0B),
+                    'Menunggu',
+                  ),
+                  _buildLegendItem(
+                    const Color(0xFF3B82F6),
+                    'Diproses',
+                  ),
+                  _buildLegendItem(
+                    const Color(0xFF10B981),
+                    'Selesai',
+                  ),
+                  _buildLegendItem(
+                    const Color(0xFFE91E63),
+                    'Laporan Saya',
+                  ),
                 ],
               ),
             ),
+          ),
+
+          // ── Kompas Navigasi ─────────────────────────────────────────────
+          Positioned(
+            bottom: 120,
+            right: 20,
+            child: _buildCompass(),
           ),
 
           // ── Slide-up Card Laporan Terpilih ──────────────────────────────
@@ -737,75 +806,119 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
   }
 
   /// Desain Marker Pin Laporan
-  Widget _buildLaporanMarker(Color color, bool isSelected, bool isMine) {
-    final ownerAccent = isMine
-        ? const Color(0xFFE91E63)
-        : const Color(0xFF334155);
-    return Stack(
-      alignment: Alignment.topCenter,
-      children: [
-        Positioned(
-          bottom: 0,
-          child: Container(
-            width: isSelected ? 20 : 16,
-            height: isSelected ? 8 : 6,
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(10),
+  Widget _buildCompass() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isFollowingLocation = true;
+        });
+        _mapController.rotate(0.0);
+      },
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.9),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
+          ],
+          border: Border.all(color: Colors.white, width: 2),
         ),
-        Container(
-          width: isSelected ? 44 : 36,
-          height: isSelected ? 44 : 36,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: ownerAccent,
-              width: isSelected ? 3.2 : 2.4,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.5),
-                blurRadius: isSelected ? 16 : 8,
-                spreadRadius: 2,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.rotate(
+              angle: (_heading ?? 0) * (3.14159 / 180),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 4,
+                    child: Text('N', 
+                      style: TextStyle(
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold, 
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                  CustomPaint(
+                    size: const Size(30, 30),
+                    painter: _CompassPainter(),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Icon(
-            isMine
-                ? Icons.person_pin_circle_rounded
-                : Icons.location_on_rounded,
-            color: Colors.white,
-            size: isSelected ? 22 : 18,
-          ),
+            ),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+            ),
+          ],
         ),
-        Positioned(
-          bottom: isSelected ? 6 : 4,
-          child: CustomPaint(
-            size: Size(isSelected ? 14 : 10, isSelected ? 10 : 7),
-            painter: _TrianglePainter(color),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _legendItem(Color color, String label) {
+  Widget _buildLaporanMarker(Color color, bool isSelected, bool isMine) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            Icons.location_on,
+            color: color,
+            size: isSelected ? 40 : 32,
+          ),
+          Positioned(
+            top: isSelected ? 10 : 7,
+            child: Container(
+              width: isSelected ? 8 : 6,
+              height: isSelected ? 8 : 6,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
           Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1),
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 10, color: AppColors.textPrimary),
+            style: const TextStyle(fontSize: 11, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -866,7 +979,8 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
                 16,
                 0,
                 16,
-                MediaQuery.of(context).padding.bottom + 90,
+                MediaQuery.of(context).padding.bottom +
+                    (Navigator.of(context).canPop() ? 20 : 90),
               ),
               child: Column(
                 children: [
@@ -1160,21 +1274,24 @@ class _PetaPageState extends State<PetaPage> with TickerProviderStateMixin {
   }
 }
 
-class _TrianglePainter extends CustomPainter {
-  final Color color;
-  const _TrianglePainter(this.color);
-
+class _CompassPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3;
+
+    // North needle (red)
+    paint.color = Colors.red;
+    canvas.drawLine(Offset(size.width / 2, size.height / 2), Offset(size.width / 2, 4), paint);
+
+    // South needle (blue/grey)
+    paint.color = Colors.blueGrey;
+    canvas.drawLine(Offset(size.width / 2, size.height / 2), Offset(size.width / 2, size.height - 4), paint);
   }
 
   @override
-  bool shouldRepaint(_TrianglePainter old) => old.color != color;
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
+
+

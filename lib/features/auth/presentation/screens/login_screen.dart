@@ -4,7 +4,7 @@ import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/register_screen.dart';
-import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 import 'package:infrast/presentation/widgets/animated_blob_background.dart';
 import 'package:infrast/presentation/widgets/dialogs/user_friendly_dialog.dart';
@@ -85,20 +85,10 @@ class _LoginScreenState extends State<LoginScreen> {
         UserFriendlyDialog.show(
           context: context,
           type: DialogType.error,
-          title: 'Tidak Dapat Terhubung ke Server',
-          message: 'Aplikasi tidak dapat menghubungi backend JEKI Laravel. Pastikan server sudah dinyalakan.',
-          solutionSteps: [
-            'Buka Terminal di folder backend dan jalankan: php artisan serve --host=0.0.0.0 --port=8000',
-            'Jika Android Emulator, pastikan URL adalah http://10.0.2.2:8000/api',
-            'Jika Windows/Web, gunakan http://127.0.0.1:8000/api',
-            'Jika HP fisik via Wi-Fi, isi URL ke http://IP_LAPTOP:8000/api (contoh: http://10.10.191.113:8000/api).',
-            'Jika HP fisik via USB, jalankan sekali: adb reverse tcp:8000 tcp:8000 lalu gunakan http://127.0.0.1:8000/api.',
-          ],
-          primaryButtonText: 'Tutup',
-          secondaryButtonText: 'ðŸ”§ Atur Server IP',
-          onSecondaryPressed: () {
-            UserFriendlyDialog.showServerConfigModal(context);
-          },
+          title: ApiConstants.userNetworkTitle,
+          message: ApiConstants.userNetworkMessage,
+          solutionSteps: ApiConstants.userNetworkSteps,
+          primaryButtonText: 'Coba Lagi',
         );
       } else if (result['role_mismatch'] == true) {
         UserFriendlyDialog.show(
@@ -107,10 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
           title: 'Akun Tidak Dapat Masuk',
           message:
               result['message'] ??
-              'Akun ini tidak dapat menggunakan aplikasi mobile JEKI.',
-          solutionSteps: [
-            'Aplikasi JEKI mobile digunakan oleh Warga Masyarakat dan Petugas Pelaksana.',
-            'Jika Anda Administrator Dinas, akses Web Dashboard di browser: http://localhost:8000/login',
+              'Akun ini tidak dapat menggunakan aplikasi JEKI di HP.',
+          solutionSteps: const [
+            'Aplikasi ini digunakan oleh warga dan petugas pelaksana.',
+            'Jika Anda petugas administrasi, silakan masuk melalui situs resmi JEKI.',
           ],
           primaryButtonText: 'Mengerti',
         );
@@ -122,9 +112,9 @@ class _LoginScreenState extends State<LoginScreen> {
           message:
               result['message'] ??
               'Email atau kata sandi yang Anda masukkan salah.',
-          solutionSteps: [
-            'Pastikan tidak ada kesalahan ketik pada email atau kata sandi Anda.',
-            'Gunakan tombol "Isi Cepat Akun Demo" di bawah untuk testing.',
+          solutionSteps: const [
+            'Pastikan email dan kata sandi sudah benar.',
+            'Periksa huruf besar/kecil pada kata sandi.',
           ],
           primaryButtonText: 'Coba Lagi',
         );
@@ -156,97 +146,62 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: SafeArea(
                   child: AnimatedBlobBackground(
-                    child: Stack(
-                      children: [
-                        // Tombol Setting Server di Pojok Kanan Atas
-                        Positioned(
-                          top: 4,
-                          right: 12,
-                          child: IconButton(
-                            tooltip: 'Pengaturan Server API',
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: AppSizes.responsiveWidth(context, 66),
+                            height: AppSizes.responsiveWidth(context, 66),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                              color: Colors.white.withValues(alpha: 0.22),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.45),
                               ),
-                              child: const Icon(
-                                Icons.settings_outlined,
-                                color: Colors.white,
-                                size: 20,
-                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFB50060)
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                            onPressed: () =>
-                                UserFriendlyDialog.showServerConfigModal(
-                                  context,
-                                ),
+                            child: Icon(
+                              Icons.home_rounded,
+                              color: Colors.white,
+                              size: AppSizes.responsiveWidth(context, 34),
+                            ),
                           ),
-                        ),
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Glassmorphic Home Icon Squircle
-                              Container(
-                                width: AppSizes.responsiveWidth(context, 66),
-                                height: AppSizes.responsiveWidth(context, 66),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(22),
-                                  color: Colors.white.withValues(alpha: 0.22),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.45),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFB50060)
-                                          .withValues(alpha: 0.35),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.home_rounded,
-                                  color: Colors.white,
-                                  size: AppSizes.responsiveWidth(context, 34),
-                                ),
-                              ),
-                              SizedBox(
-                                height: AppSizes.responsiveSpacing(context, 16),
-                              ),
-                              Text(
-                                'Masuk Ke Akun',
-                                style: TextStyle(
-                                  fontSize: AppSizes.responsiveWidth(
-                                    context,
-                                    25,
-                                  ),
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              SizedBox(
-                                height: AppSizes.responsiveSpacing(context, 6),
-                              ),
-                              Text(
-                                'Masuk untuk melaporkan infrastruktur',
-                                style: TextStyle(
-                                  fontSize: AppSizes.responsiveWidth(
-                                    context,
-                                    13,
-                                  ),
-                                  color: Colors.white.withValues(alpha: 0.88),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(
-                                height: AppSizes.responsiveSpacing(context, 16),
-                              ),
-                            ],
+                          SizedBox(
+                            height: AppSizes.responsiveSpacing(context, 16),
                           ),
-                        ),
-                      ],
+                          Text(
+                            'Masuk Ke Akun',
+                            style: TextStyle(
+                              fontSize: AppSizes.responsiveWidth(context, 25),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          SizedBox(
+                            height: AppSizes.responsiveSpacing(context, 6),
+                          ),
+                          Text(
+                            'Masuk untuk melaporkan infrastruktur',
+                            style: TextStyle(
+                              fontSize: AppSizes.responsiveWidth(context, 13),
+                              color: Colors.white.withValues(alpha: 0.88),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(
+                            height: AppSizes.responsiveSpacing(context, 16),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

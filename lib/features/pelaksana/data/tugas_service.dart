@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/services/api_client.dart';
 import 'package:infrast/core/services/storage_service.dart';
 
@@ -19,15 +18,7 @@ class TugasService {
   static Future<Map<String, dynamic>> _post(String path, [Map<String, dynamic>? body]) =>
       ApiClient.post(path, body: body ?? {});
 
-  static Future<String> _getBaseUrl() async {
-    final custom = await StorageService.getBaseUrl();
-    if (custom != null && custom.isNotEmpty) return custom;
-    if (kIsWeb) return 'http://127.0.0.1:8000/api';
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
-    } catch (_) {}
-    return 'http://127.0.0.1:8000/api';
-  }
+  static Future<String> _getBaseUrl() => ApiConstants.getActiveBaseUrl();
 
   static Map<String, dynamic> _parseRaw(http.Response res) {
     try {

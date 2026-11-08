@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "861019284438",
+    "project_id": "jeki-a831d",
+    "storage_bucket": "jeki-a831d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:861019284438:android:a5682bd89973a5fd223a77",
+        "android_client_info": {
+          "package_name": "com.example.infrast"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3smen4l1bllSQQj6EnuF6HZoVo2BYwb8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

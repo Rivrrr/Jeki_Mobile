@@ -1,16 +1,20 @@
-import 'dart:io' show Platform, Process;
+import 'package:flutter/material.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/gps_camera_page.dart';
+import 'package:flutter/services.dart';
+import 'dart:io' show File, Platform, Process;
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Objek foto independen platform (mendukung Web, Android, iOS, Windows).
 /// Menggunakan in-memory Uint8List bytes sehingga tidak bergantung pada direktori filesystem atau dart:io.
 class PhotoItem {
   final String name;
   final Uint8List bytes;
+  final String? path;
   final double latitude;
   final double longitude;
   final String locationLabel;
@@ -19,6 +23,7 @@ class PhotoItem {
   PhotoItem({
     required this.name,
     required this.bytes,
+    this.path,
     this.latitude = 0.0,
     this.longitude = 0.0,
     this.locationLabel = '',
@@ -94,9 +99,9 @@ class FotoHelper {
           Offset(0, height - bannerHeight),
           Offset(0, height),
           [
-            Colors.black.withOpacity(0.0),
-            Colors.black.withOpacity(0.85),
-            Colors.black.withOpacity(0.96),
+            Colors.black.withValues(alpha: 0.0),
+            Colors.black.withValues(alpha: 0.85),
+            Colors.black.withValues(alpha: 0.96),
           ],
           [0.0, 0.32, 1.0],
         );
@@ -177,10 +182,34 @@ class FotoHelper {
     }
   }
 
+  /// Mengompresi gambar dan menyimpannya ke penyimpanan lokal perangkat.
+  static Future<String?> _compressAndSave(Uint8List bytes, String fileName) async {
+    if (kIsWeb) return null;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/$fileName';
+      final file = File(path);
+      await file.writeAsBytes(bytes);
+
+      // Compress the file
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        path,
+        path, // targetPath as positional argument
+        quality: 70,
+      );
+
+      return compressedFile?.path;
+    } catch (e) {
+      debugPrint('Compression error: $e');
+      return null;
+    }
+  }
+
   /// Mengambil foto bukti nyata langsung menggunakan kamera perangkat.
   /// Pengambilan dari galeri dinonaktifkan demi menjamin keaslian foto di lapangan.
   /// Foto otomatis diberi watermark koordinat GPS dan tanggal/jam WIB.
   static Future<PhotoItem?> ambilFotoKamera({
+    required BuildContext context,
     double? latitude,
     double? longitude,
     String? locationLabel,
@@ -199,56 +228,86 @@ class FotoHelper {
       locLabel = generated['label'] as String;
     }
 
-    final picker = ImagePicker();
-    XFile? picked;
+    if (kIsWeb) {
+      // Web fallback to ImagePicker
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: ImageSource.camera);
+      if (picked == null) return null;
+      final rawBytes = await picked.readAsBytes();
+      final watermarkedBytes = await embedWatermark(
+        imageBytes: rawBytes,
+        latitude: lat,
+        longitude: lng,
+        locationLabel: locLabel,
+        alamatJalan: alamatJalan,
+      );
+      return PhotoItem(
+        name: 'bukti_web_${DateTime.now().millisecondsSinceEpoch}.png',
+        bytes: watermarkedBytes,
+        latitude: lat,
+        longitude: lng,
+        locationLabel: locLabel,
+        timestamp: DateTime.now().toUtc().add(const Duration(hours: 7)),
+      );
+    }
 
-    if (!kIsWeb && Platform.isWindows) {
-      // Pada platform Windows:
-      // Luncurkan aplikasi Kamera bawaan Windows agar webcam aktif mengambil foto asli secara real-time,
-      // lalu buka dialog untuk memilih berkas foto asli dari kamera / Camera Roll.
+    if (Platform.isWindows) {
+      final picker = ImagePicker();
       try {
         await Process.run('cmd', ['/c', 'start', 'microsoft.windows.camera:']);
       } catch (_) {}
-
-      picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 88,
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return null;
+      final rawBytes = await picked.readAsBytes();
+      final watermarkedBytes = await embedWatermark(
+        imageBytes: rawBytes,
+        latitude: lat,
+        longitude: lng,
+        locationLabel: locLabel,
+        alamatJalan: alamatJalan,
       );
-    } else {
-      // Pada Android & iOS: 100% Wajib Kamera Fisik Langsung (MediaStore.ACTION_IMAGE_CAPTURE)
-      picked = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 88,
+      final fileName = 'bukti_win_${DateTime.now().millisecondsSinceEpoch}.png';
+      final savedPath = await _compressAndSave(watermarkedBytes, fileName);
+      return PhotoItem(
+        name: fileName,
+        bytes: watermarkedBytes,
+        path: savedPath,
+        latitude: lat,
+        longitude: lng,
+        locationLabel: locLabel,
+        timestamp: DateTime.now().toUtc().add(const Duration(hours: 7)),
       );
     }
 
-    if (picked == null) {
-      // Pengguna menekan tombol kembali/batal di antarmuka kamera
-      return null;
-    }
-
-    final rawBytes = await picked.readAsBytes();
-    final watermarkedBytes = await embedWatermark(
-      imageBytes: rawBytes,
-      latitude: lat,
-      longitude: lng,
-      locationLabel: locLabel,
-      alamatJalan: alamatJalan,
+    // Android & iOS: Use the custom GPS Camera Screen for real-time overlay
+    final result = await Navigator.push<PhotoItem>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GPSCameraScreen(
+          initialLat: lat,
+          initialLng: lng,
+          initialLocationLabel: locLabel,
+          initialAlamatJalan: alamatJalan,
+        ),
+      ),
     );
 
-    final fileName = 'bukti_kamera_${DateTime.now().millisecondsSinceEpoch}.png';
+    return result;
+  }
 
+  /// Wrapper to handle compression and persistence for the result from GPSCameraScreen
+  static Future<PhotoItem?> processCameraResult(PhotoItem? result) async {
+    if (result == null) return null;
+    final fileName = result.name;
+    final savedPath = await _compressAndSave(result.bytes, fileName);
     return PhotoItem(
-      name: fileName,
-      bytes: watermarkedBytes,
-      latitude: lat,
-      longitude: lng,
-      locationLabel: locLabel,
-      timestamp: DateTime.now().toUtc().add(const Duration(hours: 7)),
+      name: result.name,
+      bytes: result.bytes,
+      path: savedPath,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      locationLabel: result.locationLabel,
+      timestamp: result.timestamp,
     );
   }
 

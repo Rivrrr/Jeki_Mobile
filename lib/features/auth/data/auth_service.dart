@@ -44,11 +44,20 @@ class AuthService {
     String email,
     String password,
   ) async {
-    final response = await ApiClient.post(
+    var response = await ApiClient.post(
       '/login',
       body: {'email': email.trim().toLowerCase(), 'password': password.trim()},
       requiresAuth: false,
     );
+
+    if (response['isNetworkError'] == true) {
+      ApiConstants.resetCache();
+      response = await ApiClient.post(
+        '/login',
+        body: {'email': email.trim().toLowerCase(), 'password': password.trim()},
+        requiresAuth: false,
+      );
+    }
 
     if (response['success'] == true) {
       final data = response['data'] as Map<String, dynamic>;
@@ -61,8 +70,7 @@ class AuthService {
           'role_mismatch': true,
           'user_role': role,
           'message':
-              'Akun Anda ($role) tidak dapat menggunakan aplikasi mobile JEKI. '
-              'Akses Web Dashboard di browser: http://localhost:8000/login',
+              'Akun ini tidak dapat digunakan di aplikasi HP. Silakan masuk melalui situs resmi JEKI.',
         };
       }
 
@@ -131,7 +139,7 @@ class AuthService {
     required String phone,
     required String password,
   }) async {
-    final response = await ApiClient.post(
+    var response = await ApiClient.post(
       ApiConstants.register,
       body: {
         'name': name,
@@ -139,8 +147,22 @@ class AuthService {
         'password': password,
         'no_hp': phone,
       },
-      requiresAuth: false, // Belum ada token saat register
+      requiresAuth: false,
     );
+
+    if (response['isNetworkError'] == true) {
+      ApiConstants.resetCache();
+      response = await ApiClient.post(
+        ApiConstants.register,
+        body: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'no_hp': phone,
+        },
+        requiresAuth: false,
+      );
+    }
 
     if (response['success'] == true) {
       final data = response['data'] as Map<String, dynamic>;
@@ -166,6 +188,7 @@ class AuthService {
       'success': false,
       'message': response['message'] ?? 'Pendaftaran gagal. Silakan coba lagi.',
       'autoLogin': false,
+      'isNetworkError': response['isNetworkError'] == true,
     };
   }
 
@@ -236,16 +259,50 @@ class AuthService {
     return await StorageService.getUser();
   }
 
-  /// Update nama / profil ke server Laravel lalu sinkronkan ke lokal
+  /// Mengubah kata sandi user.
+  /// Endpoint: `POST /api/change-password`
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await ApiClient.post(
+      ApiConstants.changePassword,
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+      requiresAuth: true,
+    );
+
+    if (response['success'] == true) {
+      return {
+        'success': true,
+        'message': response['message'] ?? 'Kata sandi berhasil diperbarui',
+      };
+    }
+
+    return {
+      'success': false,
+      'message': response['message'] ?? 'Gagal mengubah kata sandi',
+    };
+  }
+
+  /// Update profil ke server Laravel lalu sinkronkan ke lokal
   static Future<Map<String, dynamic>> updateProfile({
     required String name,
     String? phone,
+    String? address,
+    String? birthDate,
+    String? gender,
   }) async {
     final response = await ApiClient.put(
       ApiConstants.me,
       body: {
         'name': name,
         if (phone != null && phone.isNotEmpty) 'no_hp': phone,
+        if (address != null && address.isNotEmpty) 'address': address,
+        if (birthDate != null && birthDate.isNotEmpty) 'birth_date': birthDate,
+        if (gender != null && gender.isNotEmpty) 'gender': gender,
       },
     );
 

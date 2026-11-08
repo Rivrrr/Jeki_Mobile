@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:infrast/core/constants/app_colors.dart';
-import 'package:infrast/features/masyarakat/main_navigation/presentation/screens/main_navigation.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/list/my_laporan_page.dart';
 
 class LaporanBerhasilScreen extends StatelessWidget {
@@ -159,7 +159,7 @@ class LaporanBerhasilScreen extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'Lihat Riwayat Laporan â†’',
+                          'Lihat Laporan Saya →',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
