@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:infrast/core/constants/app_colors.dart';
+import 'package:infrast/core/theme/app_decor.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/pelaksana/data/tugas_service.dart';
@@ -6,7 +8,12 @@ import 'package:infrast/features/pelaksana/presentation/screens/tugas_list_scree
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_detail_screen.dart';
 
 class PelaksanaHomePage extends StatefulWidget {
-  const PelaksanaHomePage({super.key});
+  final VoidCallback? onOpenLaporan;
+
+  const PelaksanaHomePage({
+    super.key,
+    this.onOpenLaporan,
+  });
 
   @override
   State<PelaksanaHomePage> createState() => _PelaksanaHomePageState();
@@ -26,6 +33,7 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
     _loadProfile();
   }
 
+  // ── LOGIC: TIDAK DISENTUH ──────────────────────────────────────────────
   void _loadProfile() async {
     final user     = await AuthService.getUser();
     final health   = await AuthService.checkHealth();
@@ -63,7 +71,9 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Konfirmasi Keluar', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Apakah Anda yakin ingin keluar dari akun Petugas Pelaksana?'),
         actions: [
@@ -82,9 +92,10 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             child: const Text('Keluar'),
           ),
@@ -93,351 +104,225 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
     );
   }
 
+  // ── BUILD (UI: Tanpa Scaffold) ─────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
+    return ColoredBox(
+      color: AppColors.background,
+      child: _homeTab(),
+    );
+  }
+
+  // ── TAB BERANDA (Visual 100% utuh) ─────────────────────────────────────
+  Widget _homeTab() {
     final name      = _user?['name'] ?? 'Petugas Lapangan';
-    final email     = _user?['email'] ?? '-';
     final keahlian  = _roleData?['keahlian'] ?? 'Spesialis Infrastruktur';
     final kecamatan = _roleData?['kecamatan']?['nama'] ?? 'Kabupaten Jember';
+    final topInset  = MediaQuery.of(context).padding.top;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        title: const Text(
-          'JEKI — Pelaksana',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Keluar',
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: _handleLogout,
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => _loadProfile(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Header Profil ─────────────────────────────────────────────
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0F172A),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(0xFF2563EB),
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'P',
-                            style: const TextStyle(
-                                fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(email,
-                                  style: const TextStyle(
-                                      fontSize: 12.5, color: Color(0xFF94A3B8))),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _badge(Icons.handyman_rounded, keahlian,
-                            const Color(0xFF60A5FA), const Color(0xFF2563EB)),
-                        _badge(Icons.location_on_rounded, 'Kec. $kecamatan',
-                            Colors.white, Colors.white.withValues(alpha: 0.1)),
-                      ],
-                    ),
-                  ],
-                ),
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async => _loadProfile(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 24),
+              decoration: const BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
               ),
-
-              const SizedBox(height: 20),
-
-              // ── Status Koneksi ────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: (_isServerConnected
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFDC2626))
-                        .withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: (_isServerConnected
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFDC2626))
-                          .withValues(alpha: 0.25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('JEKI — Pelaksana',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.85))),
+                      ),
+                      _connectionBanner(),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.white.withValues(alpha: 0.25),
+                              child: Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : 'P',
+                                style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Halo,',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white.withValues(alpha: 0.85))),
+                                  Text(name,
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _badge(Icons.handyman_rounded, keahlian),
+                            _badge(Icons.location_on_rounded, 'Kec. $kecamatan'),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
+                  const SizedBox(height: 24),
+                  const Text('Status Penugasan Lapangan',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: _isServerConnected
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFDC2626),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _isServerConnected
-                              ? 'Layanan JEKI terhubung'
-                              : 'Layanan JEKI sedang tidak tersedia',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _isServerConnected
-                                ? const Color(0xFF15803D)
-                                : const Color(0xFFB91C1C),
-                          ),
-                        ),
+                      _statCard('Baru', '${_stats['ditugaskan'] ?? 0}',
+                          AppColors.primary, Icons.assignment_outlined),
+                      const SizedBox(width: 12),
+                      _statCard('Dikerjakan', '${_stats['dikerjakan'] ?? 0}',
+                          AppColors.statusProcessing, Icons.engineering_outlined),
+                      const SizedBox(width: 12),
+                      _statCard('Selesai', '${_stats['selesai'] ?? 0}',
+                          AppColors.statusCompleted, Icons.task_alt_outlined),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle('Penugasan Terkini'),
+                      TextButton(
+                        onPressed: () => widget.onOpenLaporan?.call(),
+                        child: const Text('Lihat Semua >',
+                            style: TextStyle(
+                                color: AppColors.primary, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ── Statistik Tugas ───────────────────────────────────────────
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Status Penugasan Lapangan',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    _statCard('Baru', '${_stats['ditugaskan'] ?? 0}',
-                        const Color(0xFF2563EB), Icons.assignment_outlined),
-                    const SizedBox(width: 12),
-                    _statCard('Dikerjakan', '${_stats['dikerjakan'] ?? 0}',
-                        const Color(0xFFD97706), Icons.engineering_outlined),
-                    const SizedBox(width: 12),
-                    _statCard('Selesai', '${_stats['selesai'] ?? 0}',
-                        const Color(0xFF16A34A), Icons.task_alt_outlined),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Penugasan Terkini ─────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Penugasan Terkini',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context)
-                          .push(MaterialPageRoute(
-                              builder: (_) => const TugasListScreen()))
-                          .then((_) => _loadProfile()),
-                      child: const Text('Lihat Semua >',
-                          style: TextStyle(
-                              color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _recentTugas.isEmpty
-                    ? Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Belum ada tugas aktif.\nTarik ke bawah untuk refresh.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                          ),
-                        ),
-                      )
-                    : Column(
-                        children: _recentTugas.map((t) {
-                          final laporan = t['laporan'] as Map? ?? {};
-                          final status  = laporan['status'] as String? ?? 'ditugaskan';
-                          final (color, bg) = _statusColorPair(status);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(laporan['nomor'] ?? '-',
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF2563EB))),
-                                    ),
-                                    const Spacer(),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                          color: bg, borderRadius: BorderRadius.circular(6)),
-                                      child: Text(
-                                        laporan['status_label'] ?? status,
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: color),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(laporan['judul'] ?? '',
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0F172A)),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis),
-                                if (t['catatan'] != null &&
-                                    (t['catatan'] as String).isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(t['catatan'],
-                                        style: const TextStyle(
-                                            fontSize: 12.5,
-                                            color: Color(0xFF64748B)),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis),
-                                  ),
-                                const Divider(height: 20),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.location_on_outlined,
-                                        size: 14, color: Color(0xFF64748B)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(laporan['kecamatan'] ?? '-',
-                                          style: const TextStyle(
-                                              fontSize: 12, color: Color(0xFF64748B))),
-                                    ),
-                                    ElevatedButton.icon(
-                                      onPressed: () => Navigator.of(context)
-                                          .push(MaterialPageRoute(
-                                              builder: (_) => TugasDetailScreen(
-                                                  tugasId: t['id'] as int)))
-                                          .then((_) => _loadProfile()),
-                                      icon: const Icon(Icons.arrow_forward, size: 14),
-                                      label: const Text('Kerjakan',
-                                          style: TextStyle(fontSize: 12)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF2563EB),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 8),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                  const SizedBox(height: 12),
+                  if (_recentTugas.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: AppDecor.card(),
+                      child: const Text(
+                        'Belum ada tugas aktif.\nTarik ke bawah untuk refresh.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                       ),
+                    )
+                  else
+                    ..._recentTugas.map(_tugasCard),
+                ],
               ),
-
-              const SizedBox(height: 40),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _badge(IconData icon, String label, Color iconColor, Color bgColor) {
+  // ── Widget helper (Visual 100% utuh) ───────────────────────────────────
+  Widget _sectionTitle(String text) => Text(
+        text,
+        style: const TextStyle(
+            fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+      );
+
+  Widget _connectionBanner() {
+    final color = _isServerConnected ? AppColors.success : AppColors.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: bgColor.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: bgColor.withValues(alpha: 0.5)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: iconColor),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _isServerConnected ? 'Terhubung' : 'Tidak terhubung',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
           const SizedBox(width: 6),
           Text(label,
-              style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w600, color: iconColor)),
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
         ],
       ),
     );
@@ -447,44 +332,127 @@ class _PelaksanaHomePageState extends State<PelaksanaHomePage> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
+        decoration: AppDecor.card(radius: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 20),
-                Text(count,
-                    style: TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Text(count,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 2),
             Text(title,
                 style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B))),
+                    color: AppColors.textSecondary)),
           ],
         ),
       ),
     );
   }
 
+  Widget _tugasCard(Map<String, dynamic> t) {
+    final laporan = t['laporan'] as Map? ?? {};
+    final status  = laporan['status'] as String? ?? 'ditugaskan';
+    final (color, bg) = _statusColorPair(status);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: AppDecor.card(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentPink,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(laporan['nomor'] ?? '-',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary)),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  laporan['status_label'] ?? status,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(laporan['judul'] ?? '',
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis),
+          if (t['catatan'] != null && (t['catatan'] as String).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(t['catatan'],
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
+            ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined,
+                  size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(laporan['kecamatan'] ?? '-',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(
+                        builder: (_) => TugasDetailScreen(tugasId: t['id'] as int)))
+                    .then((_) => _loadProfile()),
+                icon: const Icon(Icons.arrow_forward, size: 14),
+                label: const Text('Kerjakan', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   (Color, Color) _statusColorPair(String status) {
     return switch (status) {
-      'ditugaskan'                     => (const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
-      'dikerjakan'                     => (const Color(0xFFD97706), const Color(0xFFFFFBEB)),
-      'menunggu_konfirmasi_admin'      => (const Color(0xFFEA580C), const Color(0xFFFFF7ED)),
-      'menunggu_konfirmasi_masyarakat' => (const Color(0xFF0D9488), const Color(0xFFF0FDFA)),
-      'selesai'                        => (const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
-      'dikonfirmasi'                   => (const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
-      _                                => (const Color(0xFF94A3B8), const Color(0xFFF8FAFC)),
+      'ditugaskan'                     => (AppColors.statusPending, AppColors.statusPendingBg),
+      'dikerjakan'                     => (AppColors.statusProcessing, AppColors.statusProcessingBg),
+      'menunggu_konfirmasi_admin'      => (AppColors.statusVerification, AppColors.statusVerificationBg),
+      'menunggu_konfirmasi_masyarakat' => (AppColors.statusVerification, AppColors.statusVerificationBg),
+      'selesai'                        => (AppColors.statusCompleted, AppColors.statusCompletedBg),
+      'dikonfirmasi'                   => (AppColors.statusCompleted, AppColors.statusCompletedBg),
+      _                                => (AppColors.textMuted, AppColors.background),
     };
   }
 }

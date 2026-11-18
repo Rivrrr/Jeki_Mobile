@@ -4,8 +4,8 @@ import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/register_screen.dart';
+import 'package:infrast/features/pelaksana/presentation/main_pelaksana_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
-import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
 import 'package:infrast/presentation/widgets/animated_blob_background.dart';
 import 'package:infrast/presentation/widgets/dialogs/user_friendly_dialog.dart';
 
@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Routing berdasarkan role
       final Widget destination = role == 'pelaksana'
-          ? const PelaksanaHomePage()
+          ? const MainPelaksanaPage()
           : const MainNavigation();
 
       Navigator.pushReplacement(

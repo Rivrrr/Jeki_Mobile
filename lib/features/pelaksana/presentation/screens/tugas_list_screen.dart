@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/features/pelaksana/data/tugas_service.dart';
 import 'package:infrast/features/pelaksana/presentation/screens/tugas_detail_screen.dart';
 
@@ -17,6 +18,9 @@ class _TugasListScreenState extends State<TugasListScreen>
   String? _error;
   late TabController _tabCtrl;
 
+  String _searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+
   static const _tabs = [
     ('semua',      'Semua'),
     ('ditugaskan', 'Baru'),
@@ -29,7 +33,15 @@ class _TugasListScreenState extends State<TugasListScreen>
     super.initState();
     _tabCtrl = TabController(length: _tabs.length, vsync: this);
     _tabCtrl.addListener(() {
-      if (!_tabCtrl.indexIsChanging) _applyFilter(_tabs[_tabCtrl.index].$1);
+      if (!_tabCtrl.indexIsChanging) {
+        _applyFilter(_tabs[_tabCtrl.index].$1);
+      }
+    });
+    _searchCtrl.addListener(() {
+      setState(() {
+        _searchQuery = _searchCtrl.text.toLowerCase();
+        _applyFilter(_tabs[_tabCtrl.index].$1);
+      });
     });
     _load();
   }
@@ -37,6 +49,7 @@ class _TugasListScreenState extends State<TugasListScreen>
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -58,7 +71,7 @@ class _TugasListScreenState extends State<TugasListScreen>
           res['data']?['data'] ?? res['data'] ?? []);
       setState(() {
         _allTugas = data;
-        _applyFilter('semua');
+        _applyFilter(_tabs[_tabCtrl.index].$1);
         _loading = false;
       });
     } else {
@@ -68,55 +81,120 @@ class _TugasListScreenState extends State<TugasListScreen>
 
   void _applyFilter(String status) {
     setState(() {
+      List<Map<String, dynamic>> tempList;
+
       if (status == 'semua') {
-        _filteredList = List.from(_allTugas);
+        tempList = List.from(_allTugas);
       } else if (status == 'selesai') {
-        _filteredList = _allTugas
+        tempList = _allTugas
             .where((t) => ['selesai', 'dikonfirmasi',
                 'menunggu_konfirmasi_admin', 'menunggu_konfirmasi_masyarakat']
                 .contains(t['laporan']?['status']))
             .toList();
       } else {
-        _filteredList = _allTugas
+        tempList = _allTugas
             .where((t) => t['laporan']?['status'] == status)
             .toList();
       }
+
+      if (_searchQuery.isNotEmpty) {
+        tempList = tempList.where((t) {
+          final laporan = t['laporan'] as Map? ?? {};
+          final judul = (laporan['judul'] ?? '').toString().toLowerCase();
+          final nomor = (laporan['nomor'] ?? '').toString().toLowerCase();
+          return judul.contains(_searchQuery) || nomor.contains(_searchQuery);
+        }).toList();
+      }
+
+      _filteredList = tempList;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.primary,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+        automaticallyImplyLeading: false, 
+        toolbarHeight: 70, // Menyesuaikan tinggi sedikit
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Daftar Tugas',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+            ),
+            _buildConnectionStatus(), 
+          ],
         ),
-        title: const Text(
-          'Daftar Tugas',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
-        ),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          isScrollable: true,
-          labelColor: Colors.white,
-          unselectedLabelColor: const Color(0xFF94A3B8),
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-          indicatorColor: const Color(0xFF2563EB),
-          indicatorWeight: 3,
-          tabs: _tabs.map((t) => Tab(text: t.$2)).toList(),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(110), // Space untuk Search Bar + TabBar
+          child: Column(
+            children: [
+              // ── SEARCH BAR DI HEADER (Di atas TabBar) ────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  controller: _searchCtrl,
+                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Cari judul atau nomor laporan...',
+                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: AppColors.textSecondary, size: 20),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              FocusScope.of(context).unfocus();
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // ── TAB BAR (Filter) ─────────────────────────────────────
+              TabBar(
+                controller: _tabCtrl,
+                isScrollable: true,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
+                tabs: _tabs.map((t) => Tab(text: t.$2)).toList(),
+              ),
+            ],
+          ),
         ),
       ),
+      
+      // ── BODY HANYA UNTUK LIST ──────────────────────────────────────
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _error != null
               ? _buildError()
               : RefreshIndicator(
                   onRefresh: _load,
-                  color: const Color(0xFF2563EB),
+                  color: AppColors.primary,
                   child: _filteredList.isEmpty
                       ? _buildEmpty()
                       : ListView.separated(
@@ -126,6 +204,34 @@ class _TugasListScreenState extends State<TugasListScreen>
                           itemBuilder: (_, i) => _buildCard(_filteredList[i]),
                         ),
                 ),
+    );
+  }
+
+  Widget _buildConnectionStatus() {
+    const isConnected = true; 
+    final color = isConnected ? AppColors.success : AppColors.error;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isConnected ? 'Terhubung' : 'Tidak terhubung',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          ),
+        ],
+      ),
     );
   }
 
@@ -144,10 +250,10 @@ class _TugasListScreenState extends State<TugasListScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: AppColors.primary.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 3)),
           ],
@@ -161,14 +267,14 @@ class _TugasListScreenState extends State<TugasListScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                    color: AppColors.accentPink,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(laporan['nomor'] ?? '#',
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF2563EB))),
+                          color: AppColors.primary)),
                 ),
                 const Spacer(),
                 Container(
@@ -186,36 +292,36 @@ class _TugasListScreenState extends State<TugasListScreen>
                 style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A)),
+                    color: AppColors.textPrimary),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
             if (t['catatan'] != null && (t['catatan'] as String).isNotEmpty)
               Text('Catatan: ${t['catatan']}',
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
             const SizedBox(height: 10),
             Row(
               children: [
                 const Icon(Icons.location_on_outlined,
-                    size: 13, color: Color(0xFF94A3B8)),
+                    size: 13, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     '${laporan['kecamatan'] ?? '-'}'
                     '${laporan['lokasi'] != null ? ' · ${laporan['lokasi']}' : ''}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 const Icon(Icons.category_outlined,
-                    size: 13, color: Color(0xFF94A3B8)),
+                    size: 13, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(laporan['kategori'] ?? '-',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
               ],
             ),
             if (status == 'dikerjakan') ...[
@@ -227,7 +333,7 @@ class _TugasListScreenState extends State<TugasListScreen>
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: persentase / 100.0,
-                        backgroundColor: const Color(0xFFE2E8F0),
+                        backgroundColor: AppColors.border,
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                         minHeight: 6,
                       ),
@@ -257,7 +363,7 @@ class _TugasListScreenState extends State<TugasListScreen>
                       style:
                           TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
@@ -285,24 +391,26 @@ class _TugasListScreenState extends State<TugasListScreen>
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                  color: AppColors.accentPink,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.assignment_outlined,
-                    color: Color(0xFF2563EB), size: 36),
+                    color: AppColors.primary, size: 36),
               ),
               const SizedBox(height: 20),
               const Text('Tidak Ada Tugas',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A))),
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
-              const Text(
-                'Belum ada tugas yang ditugaskan\npada filter ini.',
+              Text(
+                _searchQuery.isNotEmpty 
+                  ? 'Pencarian "$_searchQuery" tidak ditemukan.' 
+                  : 'Belum ada tugas yang ditugaskan\npada filter ini.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 13.5, color: Color(0xFF64748B), height: 1.5),
+                style: const TextStyle(
+                    fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
               ),
             ],
           ),
@@ -316,18 +424,18 @@ class _TugasListScreenState extends State<TugasListScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.wifi_off_rounded, color: Color(0xFFDC2626), size: 48),
+          const Icon(Icons.wifi_off_rounded, color: AppColors.error, size: 48),
           const SizedBox(height: 16),
           Text(_error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF64748B))),
+              style: const TextStyle(color: AppColors.textSecondary)),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _load,
             icon: const Icon(Icons.refresh),
             label: const Text('Coba Lagi'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               shape:
                   RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -340,11 +448,11 @@ class _TugasListScreenState extends State<TugasListScreen>
 
   (Color, Color) _statusStyle(String status) {
     return switch (status) {
-      'ditugaskan'   => (const Color(0xFF2563EB), const Color(0xFFEFF6FF)),
-      'dikerjakan'   => (const Color(0xFFD97706), const Color(0xFFFFFBEB)),
-      'selesai'      => (const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
-      'dikonfirmasi' => (const Color(0xFF16A34A), const Color(0xFFF0FDF4)),
-      _              => (const Color(0xFF94A3B8), const Color(0xFFF8FAFC)),
+      'ditugaskan'   => (AppColors.statusPending, AppColors.statusPendingBg),
+      'dikerjakan'   => (AppColors.statusProcessing, AppColors.statusProcessingBg),
+      'selesai'      => (AppColors.statusCompleted, AppColors.statusCompletedBg),
+      'dikonfirmasi' => (AppColors.statusCompleted, AppColors.statusCompletedBg),
+      _              => (AppColors.textMuted, AppColors.background),
     };
   }
 }
