@@ -19,14 +19,22 @@ class LocalDbHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    // v2: pastikan tabel pending_reports selalu ada. Database lama dibuat
+    // dengan onCreate yang gagal diam-diam sehingga tabelnya tidak pernah
+    // tercipta dan syncPendingReports melempar "no such table".
+    await _createDB(db, newVersion);
   }
 
   Future _createDB(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE pending_reports (
+      CREATE TABLE IF NOT EXISTS pending_reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         judul TEXT,
         kategori_id INTEGER,

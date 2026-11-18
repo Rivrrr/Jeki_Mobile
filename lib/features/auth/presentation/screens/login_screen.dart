@@ -122,6 +122,52 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Login memakai akun Google (SSO masyarakat).
+  void _handleGoogleLogin() async {
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.loginWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+      return;
+    }
+
+    // Pengguna menutup dialog pemilih akun: tidak perlu menampilkan error.
+    if (result['cancelled'] == true) return;
+
+    if (result['isNetworkError'] == true) {
+      UserFriendlyDialog.show(
+        context: context,
+        type: DialogType.error,
+        title: ApiConstants.userNetworkTitle,
+        message: ApiConstants.userNetworkMessage,
+        solutionSteps: ApiConstants.userNetworkSteps,
+        primaryButtonText: 'Coba Lagi',
+      );
+      return;
+    }
+
+    UserFriendlyDialog.show(
+      context: context,
+      type: DialogType.error,
+      title: 'Gagal Masuk dengan Google',
+      message: result['message'] ?? 'Silakan coba beberapa saat lagi.',
+      solutionSteps: const [
+        'Pastikan perangkat memiliki koneksi internet.',
+        'Gunakan akun Google pribadi yang aktif.',
+        'Jika masalah berlanjut, masuk dengan email dan kata sandi.',
+      ],
+      primaryButtonText: 'Mengerti',
+    );
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -168,10 +214,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ],
                             ),
-                            child: Icon(
-                              Icons.home_rounded,
-                              color: Colors.white,
-                              size: AppSizes.responsiveWidth(context, 34),
+                            child: Padding(
+                              padding: EdgeInsets.all(
+                                AppSizes.responsiveWidth(context, 12),
+                              ),
+                              child: Image.asset(
+                                'assets/images/logo_jk.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                           SizedBox(
@@ -431,18 +481,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 16),
 
-                      // â”€â”€ Google SSO (non-fungsi) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      // ── Google SSO ────────────────────────────────
                       Tooltip(
-                        message: 'Segera hadir',
+                        message: 'Masuk dengan akun Google',
                         child: OutlinedButton(
-                          onPressed: null,
+                          onPressed: _isLoading ? null : _handleGoogleLogin,
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30),
                             ),
                             side: BorderSide(
-                              color: AppColors.border.withValues(alpha: 0.5),
+                              color: AppColors.border.withValues(alpha: 0.9),
                               width: 1.5,
                             ),
                           ),
@@ -452,8 +502,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               Container(
                                 width: 22,
                                 height: 22,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade400,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF4285F4),
                                   shape: BoxShape.circle,
                                 ),
                                 alignment: Alignment.center,
@@ -473,27 +523,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textMuted.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Segera',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade500,
-                                    fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary.withValues(
+                                    alpha: 0.85,
                                   ),
                                 ),
                               ),

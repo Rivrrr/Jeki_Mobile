@@ -236,14 +236,7 @@ class FloatingSearchBar extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.accentPink,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.tune_rounded, color: AppColors.primary, size: 20),
-          )
+
         ],
       ),
     );

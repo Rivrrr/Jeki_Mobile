@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
 import 'package:infrast/core/services/laporan_service.dart';
+import 'package:infrast/features/masyarakat/data/notifikasi_service.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/masyarakat/presentation/widgets/home_widgets.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/create/create_laporan_page.dart';
@@ -80,10 +81,12 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _loadingReports = true);
     // Refresh user profile asynchronously
     _loadUser();
-    // Load laporan saya + semua laporan untuk peta/sekitar secara paralel
+    // Load laporan saya + semua laporan untuk peta/sekitar secara paralel,
+    // plus inbox notifikasi untuk badge jumlah belum dibaca.
     final results = await Future.wait([
       LaporanService.fetchMyLaporan(),
       LaporanService.fetchAllLaporan(),
+      NotifikasiService.fetchAll(),
     ]);
 
     if (!mounted) return;
@@ -97,23 +100,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ? List<Map<String, dynamic>>.from(rawMy)
           : <Map<String, dynamic>>[];
 
-      // Hitung notif: laporan dengan update dalam 3 hari terakhir
-      int notif = list.where((r) {
-        final riwayat = r['riwayat'] as List? ?? [];
-        if (riwayat.isEmpty) return false;
-        try {
-          final last = riwayat.last as Map;
-          final tanggal = last['tanggal'] ?? last['created_at'];
-          if (tanggal == null) return false;
-          return DateTime.now().difference(DateTime.parse(tanggal.toString())).inDays <= 3;
-        } catch (_) {
-          return false;
-        }
-      }).length;
-
+      // Badge notif: jumlah notifikasi belum dibaca dari tabel notifikasi
+      // (bukan ditebak dari riwayat laporan) supaya konsisten dengan inbox.
+      final notifRes = results[2];
       setState(() {
         _myReports = list;
-        _notifCount = notif;
+        if (notifRes['success'] == true && notifRes['data'] is Map) {
+          final count = (notifRes['data'] as Map)['unread_count'];
+          if (count is int) {
+            _notifCount = count;
+          } else if (count is num) {
+            _notifCount = count.toInt();
+          }
+        }
         _loadingReports = false;
       });
     } else {

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/services/storage_service.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/masyarakat/data/laporan_service.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/profil/edit_profile_page.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/profil/security_page.dart';
-import 'package:infrast/features/masyarakat/presentation/pages/profil/privacy_page.dart';
-import 'package:infrast/features/masyarakat/presentation/pages/profil/help_page.dart';
-import 'package:infrast/features/masyarakat/presentation/pages/profil/terms_page.dart';
-import 'package:infrast/features/masyarakat/presentation/pages/profil/suggestion_page.dart';
-
+import 'package:infrast/features/masyarakat/presentation/pages/profil/notification_settings_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/profil/panduan_melapor_page.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/profil/hubungi_kami_page.dart';
 
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -32,10 +31,7 @@ class _ProfilPageState extends State<ProfilPage> {
 
   Future<void> _loadAllData() async {
     setState(() => _loading = true);
-    await Future.wait([
-      _loadUser(),
-      _loadStats(),
-    ]);
+    await Future.wait([_loadUser(), _loadStats()]);
     if (mounted) setState(() => _loading = false);
   }
 
@@ -55,290 +51,56 @@ class _ProfilPageState extends State<ProfilPage> {
   Future<void> _loadStats() async {
     final result = await LaporanService.fetchMyLaporan();
     if (result['success'] == true) {
-      final raw = result['data'] is Map && (result['data'] as Map).containsKey('data') 
-          ? result['data']['data'] 
+      final raw =
+          result['data'] is Map && (result['data'] as Map).containsKey('data')
+          ? result['data']['data']
           : result['data'];
-      final reports = (raw is List) ? List<Map<String, dynamic>>.from(raw) : <Map<String, dynamic>>[];
-      
+      final reports = (raw is List)
+          ? List<Map<String, dynamic>>.from(raw)
+          : <Map<String, dynamic>>[];
+
       int total = reports.length;
-      int done = reports.where((r) => r['status'] == 'selesai' || r['status'] == 'dikonfirmasi').length;
+      int done = reports
+          .where(
+            (r) => r['status'] == 'selesai' || r['status'] == 'dikonfirmasi',
+          )
+          .length;
       int process = total - done;
-      
+
       if (mounted) {
-        setState(() => _stats = {'total': total, 'process': process, 'done': done});
+        setState(
+          () => _stats = {'total': total, 'process': process, 'done': done},
+        );
       }
     }
   }
 
-  void _showEditProfileDialog() {
-    final currentName = _userData?['name']?.toString() ?? '';
-    final currentPhone = _userData?['no_hp']?.toString() ?? '';
-    final currentAddress = _userData?['address']?.toString() ?? '';
-    final currentGender = _userData?['gender']?.toString() ?? 'Laki-laki';
-    final currentBirthDate = _userData?['birth_date']?.toString() ?? '';
-
-    final nameController = TextEditingController(text: currentName);
-    final phoneController = TextEditingController(text: currentPhone);
-    final addressController = TextEditingController(text: currentAddress);
-    
-    String selectedGender = currentGender;
-    DateTime? selectedDate = currentBirthDate.isNotEmpty 
-        ? DateTime.tryParse(currentBirthDate) 
-        : null;
-    bool isSaving = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(dialogCtx).viewInsets.bottom + 24,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Informasi Pribadi',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(dialogCtx),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Nama Lengkap
-                    _buildLabel('Nama Lengkap'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: nameController,
-                      decoration: InputDecoration(
-                        hintText: 'Masukkan nama lengkap Anda',
-                        prefixIcon: const Icon(Icons.person_outline),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Nomor HP
-                    _buildLabel('Nomor HP'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: 08123456789',
-                        prefixIcon: const Icon(Icons.phone_android),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Alamat
-                    _buildLabel('Alamat Lengkap'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: addressController,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        hintText: 'Masukkan alamat tempat tinggal',
-                        prefixIcon: const Icon(Icons.location_on_outlined),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Jenis Kelamin
-                    _buildLabel('Jenis Kelamin'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedGender,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Laki-laki', child: Text('Laki-laki')),
-                        DropdownMenuItem(value: 'Perempuan', child: Text('Perempuan')),
-                      ],
-                      onChanged: (val) => setDialogState(() => selectedGender = val!),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Tanggal Lahir
-                    _buildLabel('Tanggal Lahir'),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDate ?? DateTime(2000),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setDialogState(() => selectedDate = picked);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.transparent),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_outlined, size: 20),
-                            const SizedBox(width: 12),
-                            Text(
-                              selectedDate == null 
-                                  ? 'Pilih Tanggal Lahir' 
-                                  : DateFormat('dd MMMM yyyy').format(selectedDate!),
-                              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                            ),
-                            const Spacer(),
-                            const Icon(Icons.arrow_drop_down),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                final newName = nameController.text.trim();
-                                if (newName.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Nama tidak boleh kosong')),
-                                  );
-                                  return;
-                                }
-
-                                setDialogState(() => isSaving = true);
-                                
-                                final res = await AuthService.updateProfile(
-                                  name: newName,
-                                  phone: phoneController.text.trim(),
-                                  address: addressController.text.trim(),
-                                  gender: selectedGender,
-                                  birthDate: selectedDate != null 
-                                      ? DateFormat('yyyy-MM-dd').format(selectedDate!) 
-                                      : null,
-                                );
-                                
-                                if (!ctx.mounted) return;
-
-                                Navigator.pop(ctx);
-                                if (res['success'] == true) {
-                                  await _loadAllData();
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(res['message'] ?? 'Informasi pribadi berhasil diperbarui'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                } else {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(res['message'] ?? 'Gagal memperbarui data'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
-                                }
-                                setDialogState(() => isSaving = false);
-                              },
-                        child: isSaving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Text(
-                                'Simpan Perubahan',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  /// Bentuk URL foto profil absolut dari data user.
+  ///
+  /// Server mengirim `foto_profil_url` absolut, tetapi bila hanya path relatif
+  /// (`profil/xxx.jpg`) URL digabung dengan base aktif agar tetap termuat
+  /// walau `APP_URL` backend berubah.
+  String? _resolvePhotoUrl(Map<String, dynamic>? user) {
+    if (user == null) return null;
+    final full = user['foto_profil_url']?.toString();
+    if (full != null && full.startsWith('http')) return full;
+    final path = user['foto_profil']?.toString() ?? '';
+    if (path.isEmpty) return null;
+    final base = ApiConstants.baseUrl;
+    return '$base/media/${path.startsWith('/') ? path.substring(1) : path}';
   }
 
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textSecondary,
-      ),
+  Future<void> _openEditProfile() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const EditProfilePage()),
     );
+    if (updated == true) {
+      await _loadAllData();
+    }
   }
 
-  void _handleLogout(BuildContext context) async {
+  Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -351,7 +113,10 @@ class _ProfilPageState extends State<ProfilPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Keluar', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Keluar',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -359,24 +124,30 @@ class _ProfilPageState extends State<ProfilPage> {
 
     if (confirm == true) {
       await AuthService.logout();
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userName  = _userData?['name']  ?? _userData?['email']?.toString().split('@')[0] ?? 'Pengguna';
+    final userName =
+        _userData?['name'] ??
+        _userData?['email']?.toString().split('@')[0] ??
+        'Pengguna';
     final userEmail = _userData?['email'] ?? 'Email tidak ditemukan';
+    final userPhone = _userData?['no_hp']?.toString() ?? '';
+    final userPhoto = _resolvePhotoUrl(_userData);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading 
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : RefreshIndicator(
               onRefresh: _loadAllData,
               color: AppColors.primary,
@@ -384,65 +155,103 @@ class _ProfilPageState extends State<ProfilPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   children: [
-                    _buildHeader(userName, userEmail),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 120),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildStatsSection(),
-                          const SizedBox(height: 32),
-                          _buildMenuSection(
-                            'Akun & Pengaturan', 
-                            [
-                              _buildMenuItem(
-                                icon: Icons.person_outline, 
-                                title: 'Edit Profil', 
-                                subtitle: 'Ubah nama dan informasi pribadi', 
-                                onTap: _showEditProfileDialog
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.lock_outline, 
-                                title: 'Keamanan', 
-                                subtitle: 'Ubah kata sandi dan verifikasi', 
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityPage()))
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.privacy_tip_outlined, 
-                                title: 'Privasi', 
-                                subtitle: 'Kelola data dan privasi akun', 
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPage()))
-                              ),
-                            ]
+                    _buildHeader(
+                      userName.toString(),
+                      userEmail.toString(),
+                      userPhone,
+                      userPhoto,
+                    ),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 20,
+                            right: 20,
+                            top: 24,
+                            bottom: 120,
                           ),
-                          const SizedBox(height: 24),
-                          _buildMenuSection(
-                            'Bantuan & Dukungan', 
-                            [
-                              _buildMenuItem(
-                                icon: Icons.help_outline, 
-                                title: 'Pusat Bantuan', 
-                                subtitle: 'Panduan penggunaan aplikasi', 
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpPage()))
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildStatsSection(),
+                              const SizedBox(height: 28),
+                              _buildMenuSection('Akun', [
+                                _buildMenuItem(
+                                  icon: Icons.person_outline,
+                                  title: 'Edit Profil',
+                                  subtitle: 'Ubah nama, kontak, dan informasi pribadi',
+                                  onTap: _openEditProfile,
+                                ),
+                                _buildMenuItem(
+                                  icon: Icons.lock_outline,
+                                  title: 'Keamanan',
+                                  subtitle: 'Ubah kata sandi akun Anda',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const SecurityPage(),
+                                    ),
+                                  ),
+                                ),
+                                _buildMenuItem(
+                                  icon: Icons.notifications_none_rounded,
+                                  title: 'Notifikasi',
+                                  subtitle:
+                                      'Izin akses, bunyi, dan jenis notifikasi',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const NotificationSettingsPage(),
+                                    ),
+                                  ),
+                                ),
+                              ]),
+                              const SizedBox(height: 24),
+                              _buildMenuSection('Bantuan', [
+                                _buildMenuItem(
+                                  icon: Icons.menu_book_outlined,
+                                  title: 'Panduan Melapor',
+                                  subtitle: 'Langkah membuat laporan yang baik',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const PanduanMelaporPage(),
+                                    ),
+                                  ),
+                                ),
+                                _buildMenuItem(
+                                  icon: Icons.support_agent_outlined,
+                                  title: 'Hubungi Kami',
+                                  subtitle: 'Kanal bantuan resmi pengaduan',
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const HubungiKamiPage(),
+                                    ),
+                                  ),
+                                ),
+                              ]),
+                              const SizedBox(height: 32),
+                              _buildLogoutButton(),
+                              const SizedBox(height: 18),
+                              Center(
+                                child: Text(
+                                  'Jeki · Versi 1.0.0',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 1,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              _buildMenuItem(
-                                icon: Icons.description_outlined, 
-                                title: 'Syarat & Ketentuan', 
-                                subtitle: 'Aturan penggunaan layanan', 
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsPage()))
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.message_outlined, 
-                                title: 'Kirim Saran', 
-                                subtitle: 'Bantu kami menjadi lebih baik', 
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SuggestionPage()))
-                              ),
-                            ]
+                              const SizedBox(height: 20),
+                            ],
                           ),
-                          const SizedBox(height: 40),
-                          _buildLogoutButton(),
-                          const SizedBox(height: 40),
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -452,72 +261,226 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
-  Widget _buildHeader(String name, String email) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          height: 220,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 40,
-          child: Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
+  /// Header profil.
+  ///
+  /// Tinggi tidak dipatok: konten di dalam [IntrinsicHeight]-style Column dengan
+  /// padding bawah 28 px, sehingga nama/email/No HP tidak pernah tertimpa
+  /// container dekorasi dan aman di layar kecil maupun saat teks dibesarkan.
+  Widget _buildHeader(
+    String name,
+    String email,
+    String phone,
+    String? photoUrl,
+  ) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final topInset = MediaQuery.of(context).padding.top;
+
+    // Skala avatar mengikuti lebar layar (bukan hardcode) agar pas di semua device.
+    final avatarRadius = (screenWidth * 0.115).clamp(34.0, 52.0).toDouble();
+    final nameSize = screenWidth < 360 ? 18.0 : 20.0;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        child: Stack(
+          children: [
+            // Tekstur statis berlapis — dibatasi ke area latar saja lewat
+            // Positioned.fill + ClipRect, jadi tidak menimpa konten teks.
+            Positioned.fill(
+              child: ClipRect(
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: -60,
+                      right: -40,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.07),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 40,
+                      right: 40,
+                      child: Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -50,
+                      left: -30,
+                      child: Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: const CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 50, color: AppColors.primary),
+              ),
+            ),
+            // Konten: mengalir normal (bukan Positioned bertinggi tetap)
+            // sehingga tinggi header selalu = tinggi kontennya. Column dibuat
+            // stretch agar tiap baris mengisi lebar header penuh, jadi teks
+            // center-nya tepat di sumbu tengah layar (bukan center dari kolom
+            // sempit yang bisa bergeser karena avatar/pill lebih lebar).
+            SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, topInset + 24, 16, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: _buildHeaderAvatar(name, photoUrl, avatarRadius),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: nameSize,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                    if (phone.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      // No HP dibatasi lebar maksimum & di-center, tidak lagi
+                      // melebar/tumpang tindih dengan nama atau email.
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.phone_android,
+                                size: 13,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  phone,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                email,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderAvatar(String name, String? photoUrl, double radius) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final fallback = Center(
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: radius * 0.72,
+          fontWeight: FontWeight.bold,
+          color: AppColors.primary,
+        ),
+      ),
+    );
+
+    Widget inner;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      inner = Image.network(
+        photoUrl,
+        width: radius * 2,
+        height: radius * 2,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : fallback,
+      );
+    } else {
+      inner = fallback;
+    }
+
+    return Container(
+      width: radius * 2 + 8,
+      height: radius * 2 + 8,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipOval(child: SizedBox.expand(child: inner)),
     );
   }
 
   Widget _buildStatsSection() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -525,27 +488,73 @@ class _ProfilPageState extends State<ProfilPage> {
       ),
       child: Row(
         children: [
-          Expanded(child: _buildStatItem('Total', _stats['total']!, Icons.assignment_outlined)),
-          Expanded(child: _buildStatItem('Proses', _stats['process']!, Icons.sync_alt_outlined)),
-          Expanded(child: _buildStatItem('Selesai', _stats['done']!, Icons.check_circle_outline)),
+          Expanded(
+            child: _buildStatItem(
+              'Total',
+              _stats['total']!,
+              Icons.assignment_outlined,
+              AppColors.primary,
+            ),
+          ),
+          _buildStatDivider(),
+          Expanded(
+            child: _buildStatItem(
+              'Proses',
+              _stats['process']!,
+              Icons.sync_alt_outlined,
+              AppColors.statusProcessing,
+            ),
+          ),
+          _buildStatDivider(),
+          Expanded(
+            child: _buildStatItem(
+              'Selesai',
+              _stats['done']!,
+              Icons.check_circle_outline,
+              AppColors.statusCompleted,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, int value, IconData icon) {
+  Widget _buildStatDivider() {
+    return Container(
+      width: 1,
+      height: 36,
+      color: AppColors.border.withValues(alpha: 0.7),
+    );
+  }
+
+  Widget _buildStatItem(String label, int value, IconData icon, Color color) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: AppColors.primary, size: 24),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
         const SizedBox(height: 8),
         Text(
           value.toString(),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
@@ -560,8 +569,9 @@ class _ProfilPageState extends State<ProfilPage> {
           child: Text(
             title,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
+              letterSpacing: 0.4,
               color: AppColors.textSecondary,
             ),
           ),
@@ -579,7 +589,18 @@ class _ProfilPageState extends State<ProfilPage> {
             ],
           ),
           child: Column(
-            children: items,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                items[i],
+                if (i != items.length - 1)
+                  const Divider(
+                    height: 1,
+                    indent: 64,
+                    endIndent: 16,
+                    color: AppColors.border,
+                  ),
+              ],
+            ],
           ),
         ),
       ],
@@ -587,32 +608,61 @@ class _ProfilPageState extends State<ProfilPage> {
   }
 
   Widget _buildMenuItem({
-    required IconData icon, 
-    required String title, 
-    required String subtitle, 
-    required VoidCallback onTap
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        trailing: const Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -620,17 +670,23 @@ class _ProfilPageState extends State<ProfilPage> {
   Widget _buildLogoutButton() {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 52,
       child: OutlinedButton.icon(
-        onPressed: () => _handleLogout(context),
-        icon: const Icon(Icons.logout, color: AppColors.error),
+        onPressed: _handleLogout,
+        icon: const Icon(Icons.logout, color: AppColors.error, size: 20),
         label: const Text(
           'Keluar dari Akun',
-          style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(
+            color: AppColors.error,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.error),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          side: const BorderSide(color: AppColors.error, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
     );

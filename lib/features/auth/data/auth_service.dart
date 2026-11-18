@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/services/api_client.dart';
 import 'package:infrast/core/services/storage_service.dart';
@@ -54,7 +57,10 @@ class AuthService {
       ApiConstants.resetCache();
       response = await ApiClient.post(
         '/login',
-        body: {'email': email.trim().toLowerCase(), 'password': password.trim()},
+        body: {
+          'email': email.trim().toLowerCase(),
+          'password': password.trim(),
+        },
         requiresAuth: false,
       );
     }
@@ -69,8 +75,7 @@ class AuthService {
           'success': false,
           'role_mismatch': true,
           'user_role': role,
-          'message':
-              'Akun ini tidak dapat digunakan di aplikasi HP. Silakan masuk melalui situs resmi JEKI.',
+          'message': 'Akun ini tidak dapat digunakan di aplikasi HP. Silakan masuk melalui situs resmi JEKI.',
         };
       }
 
@@ -102,6 +107,103 @@ class AuthService {
       'statusCode': response['statusCode'],
       'url': response['url'],
     };
+  }
+
+  /// Login masyarakat memakai akun Google (SSO).
+  ///
+  /// Alur:
+  /// 1. Buka pemilih akun Google lewat `google_sign_in`.
+  /// 2. Ambil `idToken` hasil login.
+  /// 3. Kirim ke `POST /api/auth/google` di backend Laravel.
+  /// 4. Simpan token & role seperti login biasa.
+  ///
+  /// Catatan konfigurasi: dibutuhkan OAuth Client ID Android di
+  /// `android/app/google-services.json` / Google Cloud Console, dan
+  /// `GOOGLE_CLIENT_ID` (tipe Web application) di `.env` backend agar
+  /// klaim `aud` token dapat diverifikasi.
+  static Future<Map<String, dynamic>> loginWithGoogle() async {
+    try {
+      final googleSignIn = GoogleSignIn(scopes: const ['email', 'profile']);
+
+      // Paksa pemilih akun agar pengguna bisa berganti akun.
+      await googleSignIn.signOut();
+
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        return {
+          'success': false,
+          'cancelled': true,
+          'message': 'Login dibatalkan.',
+        };
+      }
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        return {
+          'success': false,
+          'message':
+              'Gagal memperoleh ID token dari Google. '
+              'Periksa konfigurasi OAuth Client ID Android.',
+        };
+      }
+
+      var response = await ApiClient.post(
+        '/auth/google',
+        body: {'id_token': idToken},
+        requiresAuth: false,
+      );
+
+      if (response['isNetworkError'] == true) {
+        ApiConstants.resetCache();
+        response = await ApiClient.post(
+          '/auth/google',
+          body: {'id_token': idToken},
+          requiresAuth: false,
+        );
+      }
+
+      if (response['success'] == true) {
+        final data = response['data'] as Map<String, dynamic>;
+        final role = (data['role'] ?? 'masyarakat') as String;
+
+        if (role != 'masyarakat') {
+          await googleSignIn.signOut();
+          return {
+            'success': false,
+            'role_mismatch': true,
+            'user_role': role,
+            'message': 'Akun Google ini bukan akun masyarakat JEKI.',
+          };
+        }
+
+        await StorageService.saveToken(data['access_token'] as String);
+        await StorageService.saveRole(role);
+
+        if (data['user'] != null) {
+          final user = Map<String, dynamic>.from(data['user'] as Map);
+          user['role'] = role;
+          await StorageService.saveUser(user);
+        }
+
+        return {'success': true, 'role': role, 'message': 'Berhasil masuk'};
+      }
+
+      return {
+        'success': false,
+        'message':
+            response['message'] ??
+            'Gagal masuk dengan Google. Silakan coba lagi.',
+        'isNetworkError': response['isNetworkError'] == true,
+        'statusCode': response['statusCode'],
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Login Google gagal: ${e.toString()}',
+      };
+    }
   }
 
   /// Cek kesehatan / status koneksi server Laravel.
@@ -249,6 +351,24 @@ class AuthService {
           }
           if (data['role_data'] != null) {
             updatedUser['role_data'] = data['role_data'];
+            // Angkat field profil masyarakat ke level atas supaya halaman
+            // Profil bisa membacanya langsung (no_hp, foto_profil_url).
+            final roleData = data['role_data'];
+            if (roleData is Map) {
+              for (final key in const [
+                'no_hp',
+                'alamat',
+                'gender',
+                'birth_date',
+                'nik',
+                'foto_profil',
+                'foto_profil_url',
+              ]) {
+                if (roleData[key] != null) {
+                  updatedUser[key] = roleData[key];
+                }
+              }
+            }
           }
 
           await StorageService.saveUser(updatedUser);
@@ -267,10 +387,7 @@ class AuthService {
   }) async {
     final response = await ApiClient.post(
       ApiConstants.changePassword,
-      body: {
-        'current_password': currentPassword,
-        'new_password': newPassword,
-      },
+      body: {'current_password': currentPassword, 'new_password': newPassword},
       requiresAuth: true,
     );
 
@@ -318,6 +435,52 @@ class AuthService {
     return {
       'success': false,
       'message': response['message'] ?? 'Gagal memperbarui profil',
+    };
+  }
+
+  /// Unggah foto profil masyarakat ke server.
+  ///
+  /// Endpoint: `POST /api/user/foto-profil` (multipart/form-data, field `foto`)
+  static Future<Map<String, dynamic>> uploadProfilePhoto({
+    required Uint8List bytes,
+    required String fileName,
+    String fieldName = 'foto',
+  }) async {
+    final response = await ApiClient.postMultipart(
+      ApiConstants.uploadFotoProfil,
+      fields: const {},
+      files: [(fieldName: fieldName, bytes: bytes, fileName: fileName)],
+    );
+
+    if (response['success'] == true) {
+      await syncUser();
+      return {
+        'success': true,
+        'message': response['message'] ?? 'Foto profil berhasil diperbarui',
+      };
+    }
+
+    return {
+      'success': false,
+      'message': response['message'] ?? 'Gagal mengunggah foto profil',
+    };
+  }
+
+  /// Hapus foto profil masyarakat (kembali ke avatar inisial).
+  ///
+  /// Endpoint: `DELETE /api/user/foto-profil`
+  static Future<Map<String, dynamic>> deleteProfilePhoto() async {
+    final response = await ApiClient.delete(ApiConstants.uploadFotoProfil);
+    if (response['success'] == true) {
+      await syncUser();
+      return {
+        'success': true,
+        'message': response['message'] ?? 'Foto profil berhasil dihapus',
+      };
+    }
+    return {
+      'success': false,
+      'message': response['message'] ?? 'Gagal menghapus foto profil',
     };
   }
 }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/constants/app_colors.dart';
@@ -257,10 +257,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ],
                             ),
-                            child: Icon(
-                              Icons.home_rounded,
-                              color: Colors.white,
-                              size: AppSizes.responsiveWidth(context, 34),
+                            child: Padding(
+                              padding: EdgeInsets.all(
+                                AppSizes.responsiveWidth(context, 12),
+                              ),
+                              child: Image.asset(
+                                'assets/images/logo_jk.png',
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                           SizedBox(height: AppSizes.responsiveSpacing(context, 14)),

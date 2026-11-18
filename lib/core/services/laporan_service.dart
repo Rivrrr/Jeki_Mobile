@@ -82,7 +82,16 @@ class LaporanService {
   }
 
   static Future<void> syncPendingReports() async {
-    final pending = await LocalDbHelper.instance.getPendingReports();
+    // Query offline bisa gagal (mis. tabel belum ada pada DB lokal lama).
+    // Jangan sampai exception lokal ini merambat ke UI sebagai
+    // "Koneksi database bermasalah" padahal backend sehat.
+    List<Map<String, dynamic>> pending;
+    try {
+      pending = await LocalDbHelper.instance.getPendingReports();
+    } catch (e) {
+      debugPrint('Lewati sinkronisasi laporan offline: $e');
+      return;
+    }
     if (pending.isEmpty) return;
 
     for (final report in pending) {

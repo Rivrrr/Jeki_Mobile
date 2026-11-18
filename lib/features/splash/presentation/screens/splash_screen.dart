@@ -158,10 +158,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                     ),
                                   ],
                                 ),
-                                child: Icon(
-                                  Icons.home_rounded,
-                                  color: Colors.white,
-                                  size: AppSizes.responsiveWidth(context, 40),
+                                child: Padding(
+                                  padding: EdgeInsets.all(
+                                    AppSizes.responsiveWidth(context, 16),
+                                  ),
+                                  child: Image.asset(
+                                    'assets/images/logo_jk.png',
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ],

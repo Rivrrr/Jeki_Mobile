@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:infrast/core/database/local_db_helper.dart';
+import 'package:infrast/core/services/geocoding_service.dart';
 import 'package:infrast/core/services/laporan_service.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/laporan/laporan_berhasil_page.dart';
@@ -72,6 +73,27 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
             _latitude = pos.latitude;
             _longitude = pos.longitude;
           });
+
+          // Otomatis lakukan reverse geocoding jika alamat masih kosong
+          if (_alamatController.text.trim().isEmpty) {
+            try {
+              final res = await GeocodingService.reverseGeocode(pos.latitude, pos.longitude);
+              if (mounted) {
+                setState(() {
+                  if (_alamatController.text.trim().isEmpty && res.fullAddress.isNotEmpty) {
+                    _alamatController.text = res.fullAddress;
+                  }
+                  if (_selectedKecamatanId == null && res.matchedKecamatanId != null) {
+                    _selectedKecamatanId = res.matchedKecamatanId;
+                    _selectedKecamatanNama = res.matchedKecamatanNama;
+                  }
+                  if (res.matchedKecamatanNama != null) {
+                    _coordinateLabel = 'Kec. ${res.matchedKecamatanNama}, Kab. Jember';
+                  }
+                });
+              }
+            } catch (_) {}
+          }
         }
       }
     } catch (_) {}
@@ -407,22 +429,26 @@ class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'LANGKAH ${_currentStep + 1} DARI $_totalSteps â€” ${_getStepSubtitle(_currentStep)}',
+                          'LANGKAH ${_currentStep + 1} DARI $_totalSteps • ${_getStepSubtitle(_currentStep)}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFE91E63),
-                            letterSpacing: 1.0,
+                            letterSpacing: 0.8,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           _getStepTitle(_currentStep),
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1E293B),
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

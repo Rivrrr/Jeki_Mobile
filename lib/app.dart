@@ -12,6 +12,7 @@ class App extends StatelessWidget {
       title: 'Jeki',
       debugShowCheckedModeBanner: false,
       navigatorKey: NotificationService.navigatorKey,
+      scaffoldMessengerKey: NotificationService.messengerKey,
       theme: AppTheme.lightTheme,
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.generateRoute,

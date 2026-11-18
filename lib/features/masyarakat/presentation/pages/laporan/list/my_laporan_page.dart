@@ -227,8 +227,15 @@ class _MyLaporanPageState extends State<MyLaporanPage>
                 onPressed: () => Navigator.of(context).pop(),
               )
             : null,
+        // Judul selalu menempel rapi di sisi kiri, baik saat halaman dibuka
+        // sebagai tab (tanpa tombol back) maupun lewat navigasi push (dengan
+        // tombol back). Tanpa `titleSpacing: 0`, AppBar menambahkan jarak
+        // default 16px yang membuat judul terlihat menjorok saat `leading`
+        // bernilai null.
+        titleSpacing: 4,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Laporan Saya',
@@ -238,12 +245,14 @@ class _MyLaporanPageState extends State<MyLaporanPage>
                 fontSize: 18,
               ),
             ),
+            SizedBox(height: 2),
             Text(
               'Pelacakan status penanganan infrastruktur',
               style: TextStyle(
                 fontSize: 11,
                 color: Color(0xFF64748B),
                 fontWeight: FontWeight.normal,
+                height: 1.25,
               ),
             ),
           ],

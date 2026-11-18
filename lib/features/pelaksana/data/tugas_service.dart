@@ -69,7 +69,7 @@ class TugasService {
         'catatan_tinjauan': catatan,
         if (bahanKebutuhan != null && bahanKebutuhan.isNotEmpty)
           'bahan_kebutuhan': bahanKebutuhan,
-        if (estimasiBiaya != null) 'estimasi_biaya': estimasiBiaya,
+        'estimasi_biaya': ?estimasiBiaya,
         if (estimasiWaktu != null && estimasiWaktu.isNotEmpty)
           'estimasi_waktu': estimasiWaktu,
       });

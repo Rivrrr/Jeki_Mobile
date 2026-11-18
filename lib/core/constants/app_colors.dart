@@ -8,7 +8,7 @@ class AppColors {
 
   static const Color background = Color(0xFFF8F9FD);
   static const Color cardSurface = Colors.white;
-  
+
   static const Color textPrimary = Color(0xFF1E2432);
   static const Color textSecondary = Color(0xFF757F95);
   static const Color textMuted = Color(0xFF9EA6BA);
@@ -27,6 +27,8 @@ class AppColors {
   static const Color statusVerification = Color(0xFF2196F3);
   static const Color statusVerificationBg = Color(0xFFE3F2FD);
   static const Color statusCompleted = Color(0xFF4CAF50);
+  static const Color statusOnline = Color(0xFF4CAF50);
+  static const Color statusOffline = Color(0xFFE53935);
   static const Color statusCompletedBg = Color(0xFFE8F5E9);
 
   // Gradient as in Figma (Stops: 0% #B50060, 60% #FD3F92, 100% #DC2079)
@@ -34,10 +36,6 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     stops: [0.0, 0.6, 1.0],
-    colors: [
-      Color(0xFFB50060),
-      Color(0xFFFD3F92),
-      Color(0xFFDC2079),
-    ],
+    colors: [Color(0xFFB50060), Color(0xFFFD3F92), Color(0xFFDC2079)],
   );
 }

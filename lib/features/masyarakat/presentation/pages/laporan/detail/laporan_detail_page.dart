@@ -25,11 +25,15 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
   }
 
   Future<void> _loadDetail() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final result = await LaporanService.fetchLaporanDetail(widget.laporanId);
     if (!mounted) return;
     if (result['success'] == true) {
-      final raw = result['data'] is Map && (result['data'] as Map).containsKey('data')
+      final raw =
+          result['data'] is Map && (result['data'] as Map).containsKey('data')
           ? result['data']['data']
           : result['data'];
       setState(() {
@@ -57,7 +61,10 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
           children: [
             Icon(Icons.verified_outlined, color: Colors.green),
             SizedBox(width: 8),
-            Text('Konfirmasi Selesai', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              'Konfirmasi Selesai',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ],
         ),
         content: SingleChildScrollView(
@@ -80,19 +87,30 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                    Icon(
+                      Icons.info_outline,
+                      color: Color(0xFFD97706),
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Penting: Jika Anda tidak melakukan konfirmasi dalam 7 hari, sistem akan secara otomatis menandai laporan ini tuntas dan selesai.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.4),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF92400E),
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Catatan Tambahan (Opsional):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text(
+                'Catatan Tambahan (Opsional):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: catatanCtrl,
@@ -101,7 +119,9 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                   hintText: 'Tuliskan ulasan atau tanggapan Anda...',
                   filled: true,
                   fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   contentPadding: const EdgeInsets.all(12),
                 ),
               ),
@@ -157,13 +177,15 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
 
   Future<void> _showRatingDialog() async {
     if (_laporan == null) return;
-    
+
     await showDialog(
       context: context,
       builder: (ctx) => RatingDialog(
         laporanNomor: _laporan!['nomor'] ?? 'Unknown',
         onSubmitted: (rating, comment) async {
-          debugPrint('Submitting Rating: $rating, Comment: $comment for ${_laporan!['nomor']}');
+          debugPrint(
+            'Submitting Rating: $rating, Comment: $comment for ${_laporan!['nomor']}',
+          );
           // In real implementation: await LaporanService.submitRating(widget.laporanId, rating, comment);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -185,33 +207,45 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           _laporan?['nomor'] ?? 'Detail Laporan',
-          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 16),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+            fontSize: 16,
+          ),
         ),
       ),
       body: _loading
           ? const LaporanDetailSkeleton()
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, color: AppColors.error, size: 48),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadDetail,
-                        child: const Text('Coba Lagi'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.error,
+                    size: 48,
                   ),
-                )
-              : _buildContent(),
+                  const SizedBox(height: 16),
+                  Text(_error!, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadDetail,
+                    child: const Text('Coba Lagi'),
+                  ),
+                ],
+              ),
+            )
+          : _buildContent(),
       bottomNavigationBar: _buildBottomActions(),
     );
   }
@@ -219,7 +253,8 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
   Widget? _buildBottomActions() {
     if (_laporan == null) return null;
     final status = _laporan!['status'] as String? ?? '';
-    final canKonfirmasi = _laporan!['can_konfirmasi'] == true || status == 'selesai';
+    final canKonfirmasi =
+        _laporan!['can_konfirmasi'] == true || status == 'selesai';
 
     if (!canKonfirmasi) return null;
 
@@ -228,17 +263,28 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, -3),
+            ),
+          ],
         ),
         child: ElevatedButton.icon(
           onPressed: _showRatingDialog,
           icon: const Icon(Icons.star_rounded),
-          label: const Text('Beri Rating Kepuasan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          label: const Text(
+            'Beri Rating Kepuasan',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFFC107),
             foregroundColor: Colors.black87,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         ),
       );
@@ -248,19 +294,32 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, -3),
+          ),
+        ],
       ),
       child: _isSubmittingKonfirmasi
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : ElevatedButton.icon(
               onPressed: _showKonfirmasiDialog,
               icon: const Icon(Icons.verified_rounded),
-              label: const Text('Konfirmasi Penyelesaian Laporan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              label: const Text(
+                'Konfirmasi Penyelesaian Laporan',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
     );
@@ -268,11 +327,11 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
 
   Widget _buildContent() {
     final l = _laporan!;
-    final status     = l['status'] as String? ?? 'baru';
+    final status = l['status'] as String? ?? 'baru';
     final statusLabel = l['status_label'] as String? ?? status;
-    final foto       = l['foto'] as List? ?? [];
-    final riwayat    = l['riwayat'] as List? ?? [];
-    final penugasan  = l['penugasan'] as Map?;
+    final foto = l['foto'] as List? ?? [];
+    final riwayat = l['riwayat'] as List? ?? [];
+    final penugasan = l['penugasan'] as Map?;
     final persentase = (l['persentase'] as num?)?.toInt() ?? 0;
 
     return SingleChildScrollView(
@@ -304,7 +363,10 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                     errorBuilder: (_, _, _) => Container(
                       width: 160,
                       color: AppColors.border,
-                      child: const Icon(Icons.broken_image_outlined, color: AppColors.textMuted),
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                 ),
@@ -317,14 +379,23 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
           _sectionHeader('Informasi Laporan'),
           const SizedBox(height: 10),
           _infoCard([
-            ('Nomor',   l['nomor'] ?? '-',                    Icons.tag_rounded),
-            ('Kategori',l['kategori']?['nama'] ?? '-',        Icons.category_outlined),
-            ('Judul',   l['judul'] ?? '-',                    Icons.title_rounded),
-            ('Kecamatan',l['kecamatan']?['nama'] ?? '-',      Icons.map_outlined),
-            ('Lokasi',  l['lokasi'] ?? '(tidak diisi)',        Icons.location_on_outlined),
+            ('Nomor', l['nomor'] ?? '-', Icons.tag_rounded),
+            (
+              'Kategori',
+              l['kategori']?['nama'] ?? '-',
+              Icons.category_outlined,
+            ),
+            ('Judul', l['judul'] ?? '-', Icons.title_rounded),
+            ('Kecamatan', l['kecamatan']?['nama'] ?? '-', Icons.map_outlined),
+            (
+              'Lokasi',
+              l['lokasi'] ?? '(tidak diisi)',
+              Icons.location_on_outlined,
+            ),
           ]),
 
-          if (l['deskripsi'] != null && (l['deskripsi'] as String).isNotEmpty) ...[
+          if (l['deskripsi'] != null &&
+              (l['deskripsi'] as String).isNotEmpty) ...[
             const SizedBox(height: 16),
             _sectionHeader('Deskripsi'),
             const SizedBox(height: 10),
@@ -338,7 +409,11 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               ),
               child: Text(
                 l['deskripsi'],
-                style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary, height: 1.5),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.textPrimary,
+                  height: 1.5,
+                ),
               ),
             ),
           ],
@@ -366,8 +441,14 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                     ),
                     child: Center(
                       child: Text(
-                        (penugasan['pelaksana'] as String? ?? 'P').substring(0, 1).toUpperCase(),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        (penugasan['pelaksana'] as String? ?? 'P')
+                            .substring(0, 1)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -378,17 +459,27 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                       children: [
                         Text(
                           penugasan['pelaksana'] ?? 'Petugas Lapangan',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           'Petugas Pelaksana Lapangan',
-                          style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                          ),
                         ),
                         if (penugasan['catatan'] != null) ...[
                           const SizedBox(height: 4),
                           Text(
                             '"${penugasan['catatan']}"',
-                            style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ],
@@ -404,64 +495,87 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
             const SizedBox(height: 20),
             _sectionHeader('Laporan Harian Pekerjaan Lapangan'),
             const SizedBox(height: 10),
-            ...((l['progress_list'] as List).map((p) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(8),
+            ...((l['progress_list'] as List).map(
+              (p) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${p['persentase']}%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF16A34A),
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
-                        child: Text(
-                          '${p['persentase']}%',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A), fontSize: 12),
+                        const Spacer(),
+                        Text(
+                          p['created_at'] != null
+                              ? p['created_at'].toString().split('T').first
+                              : '',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
+                      ],
+                    ),
+                    if (p['catatan'] != null &&
+                        (p['catatan'] as String).isNotEmpty) ...[
+                      const SizedBox(height: 8),
                       Text(
-                        p['created_at'] != null ? p['created_at'].toString().split('T').first : '',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                        p['catatan'],
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ],
-                  ),
-                  if (p['catatan'] != null && (p['catatan'] as String).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      p['catatan'],
-                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                    ),
-                  ],
-                  if (p['foto_url'] != null) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        p['foto_url'],
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          height: 80,
-                          color: AppColors.border,
-                          child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    if (p['foto_url'] != null) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          p['foto_url'],
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            height: 80,
+                            color: AppColors.border,
+                            child: const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ))),
+            )),
           ],
 
           // Riwayat Status Timeline
@@ -497,7 +611,11 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: color,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -505,7 +623,11 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
               if (['dikerjakan', 'selesai', 'dikonfirmasi'].contains(status))
                 Text(
                   '$persentase%',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: color,
+                  ),
                 ),
             ],
           ),
@@ -570,21 +692,30 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
                         Text(
                           _capitalizeFirst(r['status_sesudah'] ?? ''),
                           style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.bold, color: color,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: color,
                           ),
                         ),
-                        if (r['catatan'] != null && (r['catatan'] as String).isNotEmpty) ...[
+                        if (r['catatan'] != null &&
+                            (r['catatan'] as String).isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(
                             r['catatan'],
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                         if (r['tanggal'] != null) ...[
                           const SizedBox(height: 2),
                           Text(
                             _formatDate(r['tanggal']),
-                            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
                           ),
                         ],
                       ],
@@ -613,27 +744,55 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     Icon(icon, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 8),
                     SizedBox(
-                      width: 70,
-                      child: Text(label,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      width: 76,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ),
-                    const Text('  :  ', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    const Text(
+                      '  :  ',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
                     Expanded(
-                      child: Text(value,
-                          style: const TextStyle(
-                              fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (!isLast) Divider(height: 1, indent: 16, endIndent: 16, color: AppColors.border.withValues(alpha: 0.5)),
+              if (!isLast)
+                Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AppColors.border.withValues(alpha: 0.5),
+                ),
             ],
           );
         }).toList(),
@@ -644,33 +803,51 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
   Widget _sectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary,
+      ),
     );
   }
 
   (Color, Color) _statusColors(String status) {
     return switch (status) {
-      'baru'        => (AppColors.statusPending, AppColors.statusPendingBg),
-      'ditinjau'    => (AppColors.statusVerification, AppColors.statusVerificationBg),
-      'ditolak'     => (AppColors.error, const Color(0xFFFFEBEE)),
-      'ditugaskan'  => (AppColors.statusProcessing, AppColors.statusProcessingBg),
-      'dikerjakan'  => (AppColors.statusProcessing, AppColors.statusProcessingBg),
-      'selesai'     => (AppColors.statusCompleted, AppColors.statusCompletedBg),
-      'dikonfirmasi'=> (AppColors.statusCompleted, AppColors.statusCompletedBg),
-      _             => (AppColors.textSecondary, AppColors.border),
+      'baru' => (AppColors.statusPending, AppColors.statusPendingBg),
+      'ditinjau' => (
+        AppColors.statusVerification,
+        AppColors.statusVerificationBg,
+      ),
+      'ditolak' => (AppColors.error, const Color(0xFFFFEBEE)),
+      'ditugaskan' => (
+        AppColors.statusProcessing,
+        AppColors.statusProcessingBg,
+      ),
+      'dikerjakan' => (
+        AppColors.statusProcessing,
+        AppColors.statusProcessingBg,
+      ),
+      'selesai' => (AppColors.statusCompleted, AppColors.statusCompletedBg),
+      'dikonfirmasi' => (
+        AppColors.statusCompleted,
+        AppColors.statusCompletedBg,
+      ),
+      'online' => (AppColors.statusOnline, AppColors.statusCompletedBg),
+      'offline' => (AppColors.statusOffline, AppColors.statusCompletedBg),
+      _ => (AppColors.textSecondary, AppColors.border),
     };
   }
 
   IconData _statusIcon(String status) {
     return switch (status) {
-      'baru'        => Icons.fiber_new_rounded,
-      'ditinjau'    => Icons.search_rounded,
-      'ditolak'     => Icons.cancel_rounded,
-      'ditugaskan'  => Icons.assignment_rounded,
-      'dikerjakan'  => Icons.engineering_rounded,
-      'selesai'     => Icons.check_circle_rounded,
-      'dikonfirmasi'=> Icons.verified_rounded,
-      _             => Icons.circle,
+      'baru' => Icons.fiber_new_rounded,
+      'ditinjau' => Icons.search_rounded,
+      'ditolak' => Icons.cancel_rounded,
+      'ditugaskan' => Icons.assignment_rounded,
+      'dikerjakan' => Icons.engineering_rounded,
+      'selesai' => Icons.check_circle_rounded,
+      'dikonfirmasi' => Icons.verified_rounded,
+      _ => Icons.circle,
     };
   }
 
@@ -680,11 +857,23 @@ class _LaporanDetailPageState extends State<LaporanDetailPage> {
   String _formatDate(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
-      final months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-      return '${dt.day} ${months[dt.month - 1]} ${dt.year}, ${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')} WIB';
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+      ];
+      return '${dt.day} ${months[dt.month - 1]} ${dt.year}, ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} WIB';
     } catch (_) {
       return iso;
     }
   }
 }
-

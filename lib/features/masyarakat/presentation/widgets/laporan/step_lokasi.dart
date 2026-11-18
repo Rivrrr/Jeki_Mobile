@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:infrast/core/services/geocoding_service.dart';
 import 'package:infrast/core/services/laporan_service.dart';
 
@@ -289,329 +287,51 @@ class _StepLokasiState extends State<StepLokasi> {
     }
   }
 
-  /// Menemukan kecamatan di Kabupaten Jember yang paling mendekati koordinat
-  Map<String, dynamic>? _findClosestKecamatan(LatLng point) {
-    if (_kecamatanList.isEmpty) return null;
-
-    String? closestNama;
-    double minDistance = double.infinity;
-
-    for (final entry in _jemberKecamatanCentroids.entries) {
-      final dLat = point.latitude - entry.value.latitude;
-      final dLng = point.longitude - entry.value.longitude;
-      final dist = math.sqrt(dLat * dLat + dLng * dLng);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closestNama = entry.key;
-      }
-    }
-
-    if (closestNama != null) {
-      for (final k in _kecamatanList) {
-        if ((k['nama'] as String).toLowerCase() == closestNama.toLowerCase()) {
-          return k;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /// Format nomor rumah agar rapi dan sesuai standar alamat Indonesia
-  String _formatNomorRumah(String raw) {
-    final clean = raw.trim();
-    final lower = clean.toLowerCase();
-    if (lower.startsWith('no.') ||
-        lower.startsWith('no ') ||
-        lower.startsWith('blok') ||
-        lower.startsWith('#')) {
-      return clean;
-    }
-    return 'No. $clean';
-  }
-
-  /// Bersihkan dan standarisasi nama jalan
-  String _formatNamaJalan(String raw) {
-    var road = raw.trim();
-    final lower = road.toLowerCase();
-    
-    // Hilangkan redundansi 'Jalan' atau 'Jl.' di awal jika ada
-    if (lower.startsWith('jalan ')) {
-      road = road.substring(6).trim();
-    } else if (lower.startsWith('jl. ')) {
-      road = road.substring(4).trim();
-    } else if (lower.startsWith('jl ')) {
-      road = road.substring(3).trim();
-    }
-
-    // Standarisasi menjadi 'Jl.'
-    if (road.isEmpty) return 'Lokasi tidak dikenal';
-    
-    final roadLower = road.toLowerCase();
-    if (!roadLower.startsWith('gang ') &&
-        !roadLower.startsWith('gg.') &&
-        !roadLower.startsWith('gg ') &&
-        !roadLower.startsWith('lorong ') &&
-        !roadLower.startsWith('blok ') &&
-        !roadLower.startsWith('dusun ') &&
-        !roadLower.startsWith('alun-alun') &&
-        !roadLower.startsWith('kawasan')) {
-      road = 'Jl. $road';
-    }
-    return road;
-  }
-
-  /// Melakukan Reverse Geocoding multi-provider (Nominatim Zoom 17 + Photon Komoot + BigDataCloud)
-  /// untuk menjamin nama jalan dan nomor rumah selalu terisi dengan akurat.
+  /// Melakukan Reverse Geocoding via GeocodingService (Nominatim Zoom 17 + Photon Komoot + BigDataCloud)
+  /// untuk menjamin nama jalan, nomor rumah, dan kecamatan selalu terisi dengan akurat.
   Future<void> _reverseGeocode(LatLng point) async {
-    String? detectedRoad;
-    String? detectedHouseNumber;
-    String? detectedPoi;
-    String? detectedVillage;
-    String? detectedCityDistrict;
-    String? rawDisplayName;
-
-    // ── 1. Provider Utama: OpenStreetMap Nominatim di Level Jalan (Zoom 17) ──
     try {
-      final nomUrl = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.latitude}&lon=${point.longitude}&zoom=17&addressdetails=1&accept-language=id',
+      final result = await GeocodingService.reverseGeocode(
+        point.latitude,
+        point.longitude,
+        availableKecamatans: _kecamatanList,
       );
 
-      final response = await http.get(nomUrl, headers: {
-        'User-Agent': 'Jeki-Infrast-App/1.0 (contact: info@jeki.id)',
-        'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
-      }).timeout(const Duration(seconds: 4));
+      if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final address = data['address'] as Map<String, dynamic>? ?? {};
-        rawDisplayName = data['display_name'] as String?;
+      var fullAlamat = result.fullAddress;
 
-        detectedRoad = address['road'] ??
-            address['street'] ??
-            address['residential'] ??
-            address['pedestrian'] ??
-            address['footway'] ??
-            address['path'] ??
-            address['service'] ??
-            address['track'] ??
-            address['cycleway'] ??
-            address['living_street'] ??
-            address['highway'];
-
-        detectedHouseNumber = address['house_number'] ??
-            address['street_number'] ??
-            address['house_name'];
-
-        final rawBldg = address['building'];
-        final bldgName = (rawBldg is String &&
-                rawBldg.toLowerCase() != 'yes' &&
-                rawBldg.toLowerCase() != 'true' &&
-                rawBldg.toLowerCase() != 'house')
-            ? rawBldg
-            : null;
-
-        detectedPoi = address['amenity'] ??
-            address['shop'] ??
-            address['office'] ??
-            address['tourism'] ??
-            address['leisure'] ??
-            bldgName ??
-            (data['name'] is String && data['name'] != detectedRoad ? data['name'] : null);
-
-        detectedVillage = address['suburb'] ??
-            address['village'] ??
-            address['neighbourhood'] ??
-            address['hamlet'] ??
-            address['quarter'];
-
-        detectedCityDistrict = address['city_district'] ??
-            address['subdistrict'] ??
-            address['district'] ??
-            address['county'];
-      }
-    } catch (_) {}
-
-    // ── 2. Provider Kedua (Fallback Cepat): Photon Komoot Spatial Search ──
-    // Jika Nominatim belum menemukan jalan (misal pin di tengah pekarangan rumah),
-    // Photon secara spasial mencari jalan terdekat dari koordinat tersebut.
-    if (detectedRoad == null || detectedRoad.trim().isEmpty) {
-      try {
-        final photonUrl = Uri.parse(
-          'https://photon.komoot.io/reverse?lat=${point.latitude}&lon=${point.longitude}&lang=id',
-        );
-        final pResp = await http.get(photonUrl).timeout(const Duration(seconds: 3));
-        if (pResp.statusCode == 200) {
-          final pData = json.decode(pResp.body);
-          final features = pData['features'] as List?;
-          if (features != null && features.isNotEmpty) {
-            final props = features[0]['properties'] as Map<String, dynamic>? ?? {};
-            final street = props['street'] as String?;
-            if (street != null && street.trim().isNotEmpty) {
-              detectedRoad = street.trim();
-            }
-            if (detectedHouseNumber == null && props['housenumber'] != null) {
-              detectedHouseNumber = props['housenumber'].toString();
-            }
-            if (detectedPoi == null && props['name'] != null && props['name'] != detectedRoad) {
-              detectedPoi = props['name'] as String;
-            }
-            if (detectedVillage == null && props['district'] != null) {
-              detectedVillage = props['district'] as String;
-            }
-            if (detectedCityDistrict == null && props['city'] != null) {
-              detectedCityDistrict = props['city'] as String;
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    // ── 3. Provider Ketiga: BigDataCloud Reverse Geocoding ──
-    if (detectedRoad == null || detectedRoad.trim().isEmpty) {
-      try {
-        final bdcUrl = Uri.parse(
-          'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${point.latitude}&longitude=${point.longitude}&localityLanguage=id',
-        );
-        final bResp = await http.get(bdcUrl).timeout(const Duration(seconds: 3));
-        if (bResp.statusCode == 200) {
-          final bData = json.decode(bResp.body);
-          final localityInfo = bData['localityInfo'] as Map<String, dynamic>? ?? {};
-          final informative = localityInfo['informative'] as List? ?? [];
-          for (final item in informative) {
-            final name = item['name'] as String? ?? '';
-            final lower = name.toLowerCase();
-            if (lower.startsWith('jalan ') ||
-                lower.startsWith('jl.') ||
-                lower.startsWith('gang ') ||
-                lower.startsWith('gg.') ||
-                (item['description'] as String? ?? '').toLowerCase().contains('road')) {
-              detectedRoad = name;
-              break;
-            }
-          }
-          if (detectedVillage == null && bData['locality'] != null) {
-            detectedVillage = bData['locality'] as String;
-          }
-          if (detectedCityDistrict == null && bData['localityInfo']?['administrative'] != null) {
-            final admin = bData['localityInfo']['administrative'] as List? ?? [];
-            for (final a in admin) {
-              final aName = (a['name'] as String? ?? '').toLowerCase();
-              if (aName.contains('kecamatan') || a['adminLevel'] == 7) {
-                detectedCityDistrict = a['name'];
-                break;
-              }
-            }
-          }
-        }
-      } catch (_) {}
-    }
-
-    // Ekstrak nomor rumah dari awal display_name jika belum terdeteksi terpisah
-    if (detectedHouseNumber == null && rawDisplayName != null && rawDisplayName.isNotEmpty) {
-      final match = RegExp(r'^(?:No\.?\s*)?(\d+[\w\-/]*)\s*,').firstMatch(rawDisplayName);
-      if (match != null) {
-        detectedHouseNumber = match.group(1);
-      }
-    }
-
-    // ── 4. Susun Nama Alamat Jalan & Nomor yang Sangat Akurat ──
-    String fullAlamat = '';
-
-    if (detectedRoad != null && detectedRoad.trim().isNotEmpty) {
-      final formattedRoad = _formatNamaJalan(detectedRoad);
-      String streetWithNumber = formattedRoad;
-      if (detectedHouseNumber != null && detectedHouseNumber.trim().isNotEmpty) {
-        streetWithNumber = '$formattedRoad ${_formatNomorRumah(detectedHouseNumber)}';
+      // Titik pusat Alun-Alun Jember jika pas di pusat kota
+      final dCenter = math.sqrt(
+        math.pow(point.latitude - jemberCenter.latitude, 2) +
+        math.pow(point.longitude - jemberCenter.longitude, 2),
+      );
+      if (dCenter < 0.005) {
+        fullAlamat = 'Alun-Alun Jember, Jl. PB Sudirman';
       }
 
-      if (detectedVillage != null &&
-          detectedVillage.trim().isNotEmpty &&
-          !formattedRoad.toLowerCase().contains(detectedVillage.toLowerCase())) {
-        fullAlamat = '$streetWithNumber, $detectedVillage';
-      } else {
-        fullAlamat = streetWithNumber;
-      }
-    } else if (rawDisplayName != null && rawDisplayName.isNotEmpty) {
-      // Jika benar-benar tidak ada nama jalan khusus, filter display_name
-      final parts = rawDisplayName
-          .split(',')
-          .map((p) => p.trim())
-          .where((p) {
-            final l = p.toLowerCase();
-            return l.isNotEmpty &&
-                l != 'indonesia' &&
-                l != 'east java' &&
-                l != 'jawa timur' &&
-                l != 'jember' &&
-                l != 'kabupaten jember' &&
-                !RegExp(r'^\d{5}$').hasMatch(l);
-          })
-          .toList();
-
-      if (parts.isNotEmpty) {
-        if (parts.length >= 2 && RegExp(r'^\d+[\w\-/]*$').hasMatch(parts[0])) {
-          fullAlamat = '${_formatNamaJalan(parts[1])} ${_formatNomorRumah(parts[0])}';
-          if (parts.length > 2) {
-            fullAlamat += ', ${parts[2]}';
-          }
-        } else {
-          fullAlamat = parts.take(2).join(', ');
+      // Otomatis isi detail/patokan jika field patokan masih kosong dan ada landmark terdeteksi
+      if (result.poi != null &&
+          result.poi!.trim().isNotEmpty &&
+          widget.detailController.text.trim().isEmpty) {
+        final poiStr = result.poi!.trim();
+        if (!fullAlamat.toLowerCase().contains(poiStr.toLowerCase())) {
+          widget.detailController.text = 'Dekat $poiStr';
         }
       }
-    }
 
-    // Titik pusat Alun-Alun Jember jika pas di pusat kota
-    final dCenter = math.sqrt(
-      math.pow(point.latitude - jemberCenter.latitude, 2) +
-      math.pow(point.longitude - jemberCenter.longitude, 2),
-    );
-    if (dCenter < 0.005) {
-      fullAlamat = 'Alun-Alun Jember, Jl. PB Sudirman';
-    }
-
-    // Otomatis isi detail/patokan jika field patokan masih kosong dan ada landmark terdeteksi
-    if (detectedPoi != null &&
-        detectedPoi.trim().isNotEmpty &&
-        widget.detailController.text.trim().isEmpty) {
-      final poiStr = detectedPoi.trim();
-      if (!fullAlamat.toLowerCase().contains(poiStr.toLowerCase())) {
-        widget.detailController.text = 'Dekat $poiStr';
-      }
-    }
-
-    // ── 5. Cocokkan Kecamatan (Berdasarkan data kecamatan resmi Kab. Jember) ──
-    final searchSource = '${detectedCityDistrict ?? ''} ${detectedVillage ?? ''} ${rawDisplayName ?? ''}'.toLowerCase();
-    Map<String, dynamic>? matchedKec;
-
-    for (final k in _kecamatanList) {
-      final kNama = (k['nama'] as String).toLowerCase();
-      if (searchSource.contains(kNama)) {
-        matchedKec = k;
-        break;
-      }
-    }
-
-    matchedKec ??= _findClosestKecamatan(point);
-
-    if (matchedKec != null && mounted) {
-      final id = matchedKec['id'] as int;
-      final nama = matchedKec['nama'] as String;
-      widget.onKecamatanSelected(id, nama);
-
-      if (fullAlamat.isEmpty) {
-        fullAlamat = 'Wilayah Kec. $nama, Kab. Jember';
+      if (result.matchedKecamatanId != null && result.matchedKecamatanNama != null) {
+        widget.onKecamatanSelected(result.matchedKecamatanId!, result.matchedKecamatanNama!);
       }
 
-      widget.alamatController.text = fullAlamat;
-      setState(() {
-        _detectedAddress = fullAlamat;
-      });
-    } else if (fullAlamat.isNotEmpty && mounted) {
-      widget.alamatController.text = fullAlamat;
-      setState(() {
-        _detectedAddress = fullAlamat;
-      });
+      if (fullAlamat.isNotEmpty) {
+        widget.alamatController.text = fullAlamat;
+        setState(() {
+          _detectedAddress = fullAlamat;
+        });
+      }
+    } catch (e) {
+      debugPrint('Reverse geocode error: $e');
     }
   }
 
@@ -841,48 +561,46 @@ class _StepLokasiState extends State<StepLokasi> {
                       ],
                     ),
 
-                    // Chip Koordinat Aktif (Top-Left)
+                    // Baris Kontrol Atas Peta (Responsif di semua lebar layar HP)
                     Positioned(
                       top: 10,
                       left: 10,
-                      right: 140,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.94),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.gps_fixed, size: 13, color: Color(0xFF16A34A)),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${_selectedPoint.latitude.toStringAsFixed(5)}, ${_selectedPoint.longitude.toStringAsFixed(5)}'
-                                ' (${widget.selectedKecamatanNama != null ? "Kec. ${widget.selectedKecamatanNama}" : "Kab. Jember"})',
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  color: Color(0xFF1E293B),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Kontrol Lapisan & Pusat Jember (Top-Right)
-                    Positioned(
-                      top: 10,
                       right: 10,
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Chip Koordinat Aktif
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.94),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.gps_fixed, size: 13, color: Color(0xFF16A34A)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${_selectedPoint.latitude.toStringAsFixed(5)}, ${_selectedPoint.longitude.toStringAsFixed(5)}'
+                                      ' (${widget.selectedKecamatanNama != null ? "Kec. ${widget.selectedKecamatanNama}" : "Kab. Jember"})',
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        color: Color(0xFF1E293B),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+
                           // Tombol Ganti Tipe Peta (Jalan / Satelit)
                           Material(
                             color: Colors.white,
@@ -912,6 +630,7 @@ class _StepLokasiState extends State<StepLokasi> {
                             ),
                           ),
                           const SizedBox(width: 6),
+
                           // Tombol Re-center ke Lokasi Perangkat
                           Material(
                             color: Colors.white,
@@ -975,10 +694,11 @@ class _StepLokasiState extends State<StepLokasi> {
                       ),
                     ),
 
-                    // Watermark / Info Google Maps Standar (Bottom-Left)
+                    // Watermark / Info Google Maps Standar (Bottom-Left, aman dari tombol zoom)
                     Positioned(
                       bottom: 10,
                       left: 10,
+                      right: 65,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
@@ -998,9 +718,13 @@ class _StepLokasiState extends State<StepLokasi> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Text(
-                              '• Ketuk peta / cubit untuk zoom',
-                              style: TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                            const Expanded(
+                              child: Text(
+                                '• Ketuk peta / cubit untuk zoom',
+                                style: TextStyle(fontSize: 9, color: Color(0xFF64748B)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -1051,19 +775,30 @@ class _StepLokasiState extends State<StepLokasi> {
 
           const SizedBox(height: 20),
 
-          // ── Dropdown Kecamatan ─────────────────────────────────────────
+          // ── Dropdown Kecamatan (Aman di semua ukuran layar) ─────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Kecamatan (Kab. Jember)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-              ),
-              if (widget.selectedKecamatanNama != null)
-                Text(
-                  'Terpilih: Kec. ${widget.selectedKecamatanNama}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFE91E63)),
+              const Flexible(
+                child: Text(
+                  'Kecamatan (Kab. Jember)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              if (widget.selectedKecamatanNama != null) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Terpilih: Kec. ${widget.selectedKecamatanNama}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFE91E63)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1123,14 +858,19 @@ class _StepLokasiState extends State<StepLokasi> {
 
           const SizedBox(height: 20),
 
-          // ── Alamat Lokasi ──────────────────────────────────────────────
+          // ── Alamat Lokasi (Aman di semua ukuran layar) ─────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Alamat Lokasi',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              const Flexible(
+                child: Text(
+                  'Alamat Lokasi',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               if (_hasUserLocation && _detectedAddress != null)
                 Flexible(
                   child: Row(
@@ -1142,6 +882,7 @@ class _StepLokasiState extends State<StepLokasi> {
                         child: Text(
                           _detectedAddress!,
                           style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1149,15 +890,22 @@ class _StepLokasiState extends State<StepLokasi> {
                   ),
                 )
               else if (_hasUserLocation)
-                const Row(
-                  children: [
-                    Icon(Icons.check_circle, size: 12, color: Color(0xFF16A34A)),
-                    SizedBox(width: 4),
-                    Text(
-                      'Auto-isi aktif',
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
-                    ),
-                  ],
+                const Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle, size: 12, color: Color(0xFF16A34A)),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Auto-isi aktif',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),

@@ -12,7 +12,20 @@
           "package_name": "com.example.infrast"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "861019284438-i98ioe3hbbugb48j4hkk0dg4gq2hjj2m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.infrast",
+            "certificate_hash": "39e89fd0e333846d4c9ca5897b1071d3dc5d47e0"
+          }
+        },
+        {
+          "client_id": "861019284438-h2db8t1cjlenqmffmopu3f5ugqdabv17.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD3smen4l1bllSQQj6EnuF6HZoVo2BYwb8"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "861019284438-h2db8t1cjlenqmffmopu3f5ugqdabv17.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

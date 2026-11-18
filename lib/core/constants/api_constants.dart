@@ -3,6 +3,7 @@ import 'dart:io' show Platform, NetworkInterface, InternetAddressType;
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:infrast/core/services/storage_service.dart';
 
@@ -13,17 +14,41 @@ enum ApiRuntime { desktop, emulator, physical }
 class ApiConstants {
   ApiConstants._();
 
-  static const int _apiPort = 8000;
+  /// Port default backend Laravel dev server.
+  static const int _defaultPort = 8000;
   static const String _apiPath = '/api';
 
   static String? _cachedWorkingUrl;
   static Completer<String>? _ongoingDiscovery;
   static ApiRuntime? _runtimeCache;
 
+  /// Override eksplisit lewat `--dart-define=API_BASE_URL=...`.
+  /// Nilai ini menang atas `.env`.
   static const String _envBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
   );
+
+  /// Membaca `API_BASE_URL` dari `.env` (di-asset lewat pubspec.yaml).
+  /// `flutter_dotenv` sudah di-load di `main()`, tetapi tetap dijaga agar
+  /// aman ketika unit test / pemanggilan awal belum menyiapkan `.env`.
+  static String? _dotenvBaseUrl() {
+    try {
+      final value = dotenv.env['API_BASE_URL'];
+      if (value == null) return null;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Prioritas: `--dart-define` → `.env` → deteksi otomatis.
+  static String? _configuredBaseUrl() {
+    final fromDefine = _sanitizeBaseUrl(_envBaseUrl);
+    if (fromDefine != null) return fromDefine;
+    return _sanitizeBaseUrl(_dotenvBaseUrl());
+  }
 
   static const String userNetworkTitle = 'Tidak Dapat Terhubung';
   static const String userNetworkMessage =
@@ -51,14 +76,16 @@ class ApiConstants {
       final plugin = DeviceInfoPlugin();
       if (Platform.isAndroid) {
         final info = await plugin.androidInfo;
-        _runtimeCache =
-            info.isPhysicalDevice ? ApiRuntime.physical : ApiRuntime.emulator;
+        _runtimeCache = info.isPhysicalDevice
+            ? ApiRuntime.physical
+            : ApiRuntime.emulator;
         return _runtimeCache!;
       }
       if (Platform.isIOS) {
         final info = await plugin.iosInfo;
-        _runtimeCache =
-            info.isPhysicalDevice ? ApiRuntime.physical : ApiRuntime.emulator;
+        _runtimeCache = info.isPhysicalDevice
+            ? ApiRuntime.physical
+            : ApiRuntime.emulator;
         return _runtimeCache!;
       }
     } catch (_) {}
@@ -67,13 +94,14 @@ class ApiConstants {
     return _runtimeCache!;
   }
 
-  static String _urlForHost(String host) => 'http://$host:$_apiPort$_apiPath';
+  static String _urlForHost(String host) =>
+      'http://$host:$_defaultPort$_apiPath';
 
   static List<String> get candidateUrls {
-    final env = _sanitizeBaseUrl(_envBaseUrl);
+    final env = _configuredBaseUrl();
     if (kIsWeb) {
       return _dedupe([
-        if (env != null) env,
+        ?env,
         _urlForHost('127.0.0.1'),
         _urlForHost('localhost'),
       ]);
@@ -82,17 +110,14 @@ class ApiConstants {
     try {
       if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
         return _dedupe([
-          if (env != null) env,
+          ?env,
           _urlForHost('127.0.0.1'),
           _urlForHost('localhost'),
         ]);
       }
     } catch (_) {}
 
-    return _dedupe([
-      if (env != null) env,
-      _urlForHost('127.0.0.1'),
-    ]);
+    return _dedupe([?env, _urlForHost('127.0.0.1')]);
   }
 
   static String get defaultBaseUrl => candidateUrls.first;
@@ -201,7 +226,7 @@ class ApiConstants {
 
   /// Cari laptop/server di subnet yang sama dengan HP.
   static Future<List<String>> _physicalDeviceCandidates() async {
-    final env = _sanitizeBaseUrl(_envBaseUrl);
+    final env = _configuredBaseUrl();
     final deviceIps = await _localLanIpv4s();
     final urls = <String>[
       if (env != null && _isCompatibleSavedUrl(env, ApiRuntime.physical)) env,
@@ -210,7 +235,27 @@ class ApiConstants {
     ];
 
     const priorityHosts = <int>[
-      1, 2, 3, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 50, 100, 101, 110, 111, 254,
+      1,
+      2,
+      3,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      50,
+      100,
+      101,
+      110,
+      111,
+      254,
     ];
 
     for (final deviceIp in deviceIps) {
@@ -234,20 +279,27 @@ class ApiConstants {
   }
 
   static Future<List<String>> _candidatesFor(ApiRuntime runtime) async {
-    final env = _sanitizeBaseUrl(_envBaseUrl);
+    final env = _configuredBaseUrl();
     switch (runtime) {
       case ApiRuntime.desktop:
         return _dedupe([
-          if (env != null) env,
+          ?env,
           _urlForHost('127.0.0.1'),
           _urlForHost('localhost'),
         ]);
       case ApiRuntime.emulator:
+        // Emulator: `10.0.2.2` memetakan ke loopback host. Bila URL dari
+        // `.env` menunjuk IP LAN, host itu tetap dicoba lebih dulu, disusul
+        // host emulator standar, lalu IP LAN hasil deteksi (berguna untuk
+        // Genymotion/emulator lain atau backend yang tidak di-bind ke
+        // 127.0.0.1).
+        final lanHosts = await _localLanIpv4s();
         return _dedupe([
           if (env != null && _isCompatibleSavedUrl(env, runtime)) env,
           _urlForHost('10.0.2.2'),
           _urlForHost('10.0.3.2'),
           _urlForHost('127.0.0.1'),
+          if (env == null) ...lanHosts.map(_urlForHost),
         ]);
       case ApiRuntime.physical:
         return _physicalDeviceCandidates();
@@ -257,7 +309,8 @@ class ApiConstants {
   static Future<String?> _findFirstWorkingUrl(List<String> candidates) async {
     if (candidates.isEmpty) return null;
 
-    const batchSize = 50; // Increased batch size for faster discovery on physical devices
+    const batchSize =
+        50; // Increased batch size for faster discovery on physical devices
     for (var i = 0; i < candidates.length; i += batchSize) {
       final end = (i + batchSize < candidates.length)
           ? i + batchSize
@@ -276,18 +329,21 @@ class ApiConstants {
     var pending = candidates.length;
 
     for (final url in candidates) {
-      _isReachable(url).then((ok) {
-        if (ok && !completer.isCompleted) {
-          completer.complete(url);
-        }
-      }).catchError((_) {
-        // Abaikan error per kandidat
-      }).whenComplete(() {
-        pending--;
-        if (pending == 0 && !completer.isCompleted) {
-          completer.complete(null);
-        }
-      });
+      _isReachable(url)
+          .then((ok) {
+            if (ok && !completer.isCompleted) {
+              completer.complete(url);
+            }
+          })
+          .catchError((_) {
+            // Abaikan error per kandidat
+          })
+          .whenComplete(() {
+            pending--;
+            if (pending == 0 && !completer.isCompleted) {
+              completer.complete(null);
+            }
+          });
     }
 
     return completer.future;
@@ -330,7 +386,9 @@ class ApiConstants {
         return working;
       }
 
-      final fallback = candidates.isNotEmpty ? candidates.first : defaultBaseUrl;
+      final fallback = candidates.isNotEmpty
+          ? candidates.first
+          : defaultBaseUrl;
       completer.complete(fallback);
       _ongoingDiscovery = null;
       return fallback;
@@ -377,6 +435,7 @@ class ApiConstants {
   static String get logout => endpoint('/logout');
   static String get me => endpoint('/user');
   static String get changePassword => endpoint('/change-password');
+  static String get uploadFotoProfil => endpoint('/user/foto-profil');
 
   static const Duration connectTimeout = Duration(seconds: 12);
   static const Duration receiveTimeout = Duration(seconds: 12);

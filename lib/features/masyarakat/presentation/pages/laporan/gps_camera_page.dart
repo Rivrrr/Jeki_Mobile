@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:infrast/core/services/geocoding_service.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -81,6 +82,23 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
     });
   }
 
+  bool _isGeocoding = false;
+  Future<void> _updateReverseGeocode(double lat, double lng) async {
+    if (_isGeocoding) return;
+    _isGeocoding = true;
+    try {
+      final res = await GeocodingService.reverseGeocode(lat, lng);
+      if (mounted && res.fullAddress.isNotEmpty) {
+        setState(() {
+          _displayAddress = res.fullAddress;
+        });
+      }
+    } catch (_) {
+    } finally {
+      _isGeocoding = false;
+    }
+  }
+
   void _startLocationUpdates() async {
     // Set initial value
     if (widget.initialLat != null && widget.initialLng != null) {
@@ -97,6 +115,9 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
         speedAccuracy: 0,
       );
       _displayAddress = widget.initialAlamatJalan ?? widget.initialLocationLabel ?? 'Kabupaten Jember';
+      if (widget.initialAlamatJalan == null || widget.initialAlamatJalan!.isEmpty) {
+        _updateReverseGeocode(widget.initialLat!, widget.initialLng!);
+      }
     }
 
     try {
@@ -108,13 +129,14 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
       Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.best,
-          distanceFilter: 10,
+          distanceFilter: 15,
         ),
       ).listen((Position position) {
         if (mounted) {
           setState(() {
             _currentPosition = position;
           });
+          _updateReverseGeocode(position.latitude, position.longitude);
         }
       });
     } catch (e) {
@@ -147,7 +169,7 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
 
       if (mounted) {
         Navigator.pop(context, PhotoItem(
-          name: 'gps_cam_${DateTime.now().millisecondsSinceEpoch}.png',
+          name: 'gps_cam_${DateTime.now().millisecondsSinceEpoch}.jpg',
           bytes: watermarkedBytes,
           latitude: lat,
           longitude: lng,
@@ -225,6 +247,19 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
     final formattedDate = DateFormat('EEEE, dd MMMM yyyy').format(nowWib);
     final formattedTime = DateFormat('HH:mm:ss').format(nowWib);
 
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final safeTop = MediaQuery.of(context).padding.top;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    final latVal = _currentPosition?.latitude ?? widget.initialLat;
+    final lngVal = _currentPosition?.longitude ?? widget.initialLng;
+    final coordText = (latVal != null && lngVal != null)
+        ? 'Lat ${latVal.toStringAsFixed(6)}° Long ${lngVal.toStringAsFixed(6)}°'
+        : 'Mencari sinyal GPS...';
+
+    final isCompact = screenWidth < 360;
+    final mapSize = isCompact ? 84.0 : 96.0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -236,15 +271,15 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
             child: CameraPreview(_controller!),
           ),
 
-          // 2. GPS Overlay (Bottom)
+          // 2. GPS Overlay (Bottom - Responsif di semua ukuran layar & notch)
           Positioned(
-            bottom: 110,
-            left: 15,
-            right: 15,
+            bottom: safeBottom + 96,
+            left: 12,
+            right: 12,
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(isCompact ? 8 : 10),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
+                color: Colors.black.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white24),
               ),
@@ -255,13 +290,13 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: SizedBox(
-                      width: 110,
-                      height: 110,
+                      width: mapSize,
+                      height: mapSize,
                       child: FlutterMap(
                         options: MapOptions(
                           initialCenter: LatLng(
-                            _currentPosition?.latitude ?? widget.initialLat ?? 0.0,
-                            _currentPosition?.longitude ?? widget.initialLng ?? 0.0,
+                            latVal ?? -8.1724,
+                            lngVal ?? 113.7007,
                           ),
                           initialZoom: 16,
                         ),
@@ -274,10 +309,10 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
                             markers: [
                               Marker(
                                 point: LatLng(
-                                  _currentPosition?.latitude ?? widget.initialLat ?? 0.0,
-                                  _currentPosition?.longitude ?? widget.initialLng ?? 0.0,
+                                  latVal ?? -8.1724,
+                                  lngVal ?? 113.7007,
                                 ),
-                                child: const Icon(Icons.location_on, color: Colors.red, size: 32),
+                                child: const Icon(Icons.location_on, color: Colors.red, size: 28),
                               ),
                             ],
                           ),
@@ -285,43 +320,61 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  // Information Text
+                  const SizedBox(width: 10),
+                  // Information Text (Flexible & Overflow-proof)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           '${widget.initialLocationLabel ?? 'Kabupaten Jember'} 🇮🇩',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 17,
+                            fontSize: isCompact ? 13 : 14.5,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 3),
                         Text(
                           _displayAddress,
-                          style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
-                          maxLines: 3,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 11 : 12,
+                            height: 1.25,
+                          ),
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 3),
                         Text(
-                          'Lat ${_currentPosition?.latitude.toStringAsFixed(6)}° Long ${_currentPosition?.longitude.toStringAsFixed(6)}°',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                          coordText,
+                          style: TextStyle(
+                            color: const Color(0xFF86EFAC),
+                            fontSize: isCompact ? 10.5 : 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 2),
                         Text(
-                          '$formattedDate $formattedTime WIB GMT +07:00',
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          '$formattedDate $formattedTime WIB',
+                          style: TextStyle(
+                            color: const Color(0xFFFDE047),
+                            fontSize: isCompact ? 10 : 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 2),
                         const Text(
-                          'Note : Captured by JEKI Infrastruktur',
-                          style: TextStyle(color: Colors.white70, fontSize: 11),
+                          'Bukti Resmi JEKI Infrastruktur',
+                          style: TextStyle(color: Colors.white70, fontSize: 9.5),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -333,7 +386,7 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
 
           // 3. Capture Button
           Positioned(
-            bottom: 40,
+            bottom: safeBottom + 16,
             left: 0,
             right: 0,
             child: Center(
@@ -361,13 +414,17 @@ class _GPSCameraScreenState extends State<GPSCameraScreen> {
             ),
           ),
 
-          // 4. Back Button
+          // 4. Back Button (Safe with Notch)
           Positioned(
-            top: 40,
-            left: 20,
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
+            top: safeTop + 8,
+            left: 16,
+            child: Material(
+              color: Colors.black45,
+              shape: const CircleBorder(),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ),
         ],

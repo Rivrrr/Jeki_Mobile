@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 import 'package:infrast/core/constants/api_constants.dart';
 import 'package:infrast/core/services/storage_service.dart';
@@ -25,7 +26,7 @@ class ApiClient {
   }) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'Accept':       'application/json',
+      'Accept': 'application/json',
     };
 
     if (requiresAuth) {
@@ -44,22 +45,24 @@ class ApiClient {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
       return {
-        'success':       isSuccess,
-        'statusCode':    response.statusCode,
-        'data':          isSuccess ? body : null,
-        'message':       body['message'] ?? (isSuccess ? 'Berhasil' : 'Terjadi kesalahan pada server.'),
+        'success': isSuccess,
+        'statusCode': response.statusCode,
+        'data': isSuccess ? body : null,
+        'message':
+            body['message'] ??
+            (isSuccess ? 'Berhasil' : 'Terjadi kesalahan pada server.'),
         'role_mismatch': body['role_mismatch'] == true,
-        'user_role':     body['user_role'],
+        'user_role': body['user_role'],
         'expected_role': body['expected_role'],
-        'errors':        body['errors'],
-        'raw_body':      body,
+        'errors': body['errors'],
+        'raw_body': body,
       };
     } catch (_) {
       return {
-        'success':        false,
-        'statusCode':     response.statusCode,
-        'data':           null,
-        'message':        'Layanan sedang sibuk. Silakan coba beberapa saat lagi.',
+        'success': false,
+        'statusCode': response.statusCode,
+        'data': null,
+        'message': 'Layanan sedang sibuk. Silakan coba beberapa saat lagi.',
         'isNetworkError': false,
       };
     }
@@ -72,7 +75,7 @@ class ApiClient {
   }) async {
     final finalUrl = await resolveUrl(pathOrUrl);
     try {
-      final headers  = await _buildHeaders(requiresAuth: requiresAuth);
+      final headers = await _buildHeaders(requiresAuth: requiresAuth);
       final response = await http
           .get(Uri.parse(finalUrl), headers: headers)
           .timeout(ApiConstants.receiveTimeout);
@@ -92,7 +95,7 @@ class ApiClient {
   }) async {
     final finalUrl = await resolveUrl(pathOrUrl);
     try {
-      final headers  = await _buildHeaders(requiresAuth: requiresAuth);
+      final headers = await _buildHeaders(requiresAuth: requiresAuth);
       final response = await http
           .post(
             Uri.parse(finalUrl),
@@ -116,13 +119,32 @@ class ApiClient {
   }) async {
     final finalUrl = await resolveUrl(pathOrUrl);
     try {
-      final headers  = await _buildHeaders(requiresAuth: requiresAuth);
+      final headers = await _buildHeaders(requiresAuth: requiresAuth);
       final response = await http
           .put(
             Uri.parse(finalUrl),
             headers: headers,
             body: body != null ? jsonEncode(body) : null,
           )
+          .timeout(ApiConstants.receiveTimeout);
+      return _parseResponse(response);
+    } on TimeoutException {
+      return _timeoutError(finalUrl);
+    } catch (e) {
+      return _networkOrUnknownError(e, finalUrl);
+    }
+  }
+
+  // ─── DELETE ────────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> delete(
+    String pathOrUrl, {
+    bool requiresAuth = true,
+  }) async {
+    final finalUrl = await resolveUrl(pathOrUrl);
+    try {
+      final headers = await _buildHeaders(requiresAuth: requiresAuth);
+      final response = await http
+          .delete(Uri.parse(finalUrl), headers: headers)
           .timeout(ApiConstants.receiveTimeout);
       return _parseResponse(response);
     } on TimeoutException {
@@ -153,15 +175,19 @@ class ApiClient {
 
       if (files != null) {
         for (final f in files) {
-          request.files.add(http.MultipartFile.fromBytes(
-            f.fieldName,
-            f.bytes,
-            filename: f.fileName,
-          ));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              f.fieldName,
+              f.bytes,
+              filename: f.fileName,
+            ),
+          );
         }
       }
 
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
       final response = await http.Response.fromStream(streamed);
       return _parseResponse(response);
     } on TimeoutException {
@@ -175,34 +201,35 @@ class ApiClient {
   static Map<String, dynamic> _timeoutError(String url) {
     ApiConstants.resetCache();
     return {
-      'success':        false,
-      'statusCode':     408,
-      'isTimeout':      true,
+      'success': false,
+      'statusCode': 408,
+      'isTimeout': true,
       'isNetworkError': true,
-      'url':            url,
-      'data':           null,
-      'message':        ApiConstants.userNetworkMessage,
+      'url': url,
+      'data': null,
+      'message': ApiConstants.userNetworkMessage,
     };
   }
 
   static Map<String, dynamic> _networkOrUnknownError(Object e, String url) {
     final errStr = e.toString().toLowerCase();
-    final isConnErr = errStr.contains('socket') || 
-                      errStr.contains('clientexception') || 
-                      errStr.contains('connection refused') ||
-                      errStr.contains('failed to fetch') ||
-                      errStr.contains('xmlhttprequest');
+    final isConnErr =
+        errStr.contains('socket') ||
+        errStr.contains('clientexception') ||
+        errStr.contains('connection refused') ||
+        errStr.contains('failed to fetch') ||
+        errStr.contains('xmlhttprequest');
 
     if (isConnErr) {
       ApiConstants.resetCache();
     }
 
     return {
-      'success':        false,
-      'statusCode':     0,
+      'success': false,
+      'statusCode': 0,
       'isNetworkError': isConnErr,
-      'url':            url,
-      'data':           null,
+      'url': url,
+      'data': null,
       'message': isConnErr
           ? ApiConstants.userNetworkMessage
           : 'Terjadi kendala. Silakan coba lagi beberapa saat lagi.',

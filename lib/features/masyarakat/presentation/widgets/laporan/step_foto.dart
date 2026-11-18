@@ -437,14 +437,19 @@ class StepFoto extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Deskripsi Kondisi Kerusakan',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+              const Flexible(
+                child: Text(
+                  'Deskripsi Kondisi Kerusakan',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: deskripsiController,
                 builder: (context, value, child) {

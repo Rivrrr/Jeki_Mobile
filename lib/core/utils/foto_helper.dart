@@ -56,6 +56,31 @@ class FotoHelper {
     return '$dayName, ${wib.day.toString().padLeft(2, '0')} $monthName ${wib.year} • $timeStr';
   }
 
+  /// Mengompresi byte gambar menjadi format JPEG berukuran ringan (300KB - 800KB)
+  /// dengan resolusi maksimum 1920x1080 untuk menghemat kuota & kestabilan jaringan.
+  static Future<Uint8List> compressImageBytes(
+    Uint8List rawBytes, {
+    int quality = 78,
+    int minWidth = 1920,
+    int minHeight = 1080,
+  }) async {
+    try {
+      final compressed = await FlutterImageCompress.compressWithList(
+        rawBytes,
+        quality: quality,
+        minWidth: minWidth,
+        minHeight: minHeight,
+        format: CompressFormat.jpeg,
+      );
+      if (compressed.isNotEmpty && compressed.length < rawBytes.length) {
+        return compressed;
+      }
+    } catch (e) {
+      debugPrint('compressImageBytes error: $e');
+    }
+    return rawBytes;
+  }
+
   /// Membubuhi watermark koordinat GPS & waktu WIB permanen langsung pada pixel gambar asli.
   /// Watermark terbakar langsung di dalam gambar (burned-in), kompatibel di semua platform tanpa library eksternal.
   static Future<Uint8List> embedWatermark({
@@ -66,7 +91,21 @@ class FotoHelper {
     String? alamatJalan,
   }) async {
     try {
-      final codec = await ui.instantiateImageCodec(imageBytes);
+      // Downscale jika gambar resolusinya terlalu raksasa sebelum render canvas
+      ui.Codec codec;
+      final tempCodec = await ui.instantiateImageCodec(imageBytes);
+      final tempFrame = await tempCodec.getNextFrame();
+      final origWidth = tempFrame.image.width;
+      final origHeight = tempFrame.image.height;
+      tempFrame.image.dispose();
+
+      if (origWidth > 1920 || origHeight > 1920) {
+        final targetW = origWidth >= origHeight ? 1920 : (origWidth * 1920 / origHeight).round();
+        codec = await ui.instantiateImageCodec(imageBytes, targetWidth: targetW);
+      } else {
+        codec = await ui.instantiateImageCodec(imageBytes);
+      }
+
       final frame = await codec.getNextFrame();
       final image = frame.image;
       final width = image.width.toDouble();
@@ -172,36 +211,33 @@ class FotoHelper {
         ..layout(ui.ParagraphConstraints(width: width * 0.92));
       canvas.drawParagraph(locParagraph, Offset(textLeft, currentY));
 
-      // 4. Konversi kembali ke format PNG bytes berkualitas tinggi
+      // 4. Render canvas dan kompresi otomatis ke format JPEG berkualitas tinggi namun ringan
       final picture = recorder.endRecording();
       final finalImage = await picture.toImage(image.width, image.height);
       final byteData = await finalImage.toByteData(format: ui.ImageByteFormat.png);
-      return byteData!.buffer.asUint8List();
+      final renderedBytes = byteData!.buffer.asUint8List();
+
+      return await compressImageBytes(renderedBytes, quality: 78);
     } catch (_) {
       return imageBytes;
     }
   }
 
-  /// Mengompresi gambar dan menyimpannya ke penyimpanan lokal perangkat.
-  static Future<String?> _compressAndSave(Uint8List bytes, String fileName) async {
-    if (kIsWeb) return null;
+  /// Mengompresi gambar dan menyimpannya ke penyimpanan lokal perangkat (cache temp).
+  static Future<({Uint8List bytes, String? path})> _compressAndSave(Uint8List bytes, String fileName) async {
+    final compressedBytes = await compressImageBytes(bytes, quality: 78);
+    if (kIsWeb) return (bytes: compressedBytes, path: null);
+
     try {
       final tempDir = await getTemporaryDirectory();
-      final path = '${tempDir.path}/$fileName';
+      final fixedName = fileName.endsWith('.png') ? fileName.replaceAll('.png', '.jpg') : fileName;
+      final path = '${tempDir.path}/$fixedName';
       final file = File(path);
-      await file.writeAsBytes(bytes);
-
-      // Compress the file
-      final compressedFile = await FlutterImageCompress.compressAndGetFile(
-        path,
-        path, // targetPath as positional argument
-        quality: 70,
-      );
-
-      return compressedFile?.path;
+      await file.writeAsBytes(compressedBytes);
+      return (bytes: compressedBytes, path: path);
     } catch (e) {
-      debugPrint('Compression error: $e');
-      return null;
+      debugPrint('Compression save error: $e');
+      return (bytes: compressedBytes, path: null);
     }
   }
 
@@ -241,8 +277,9 @@ class FotoHelper {
         locationLabel: locLabel,
         alamatJalan: alamatJalan,
       );
+      final fileName = 'bukti_web_${DateTime.now().millisecondsSinceEpoch}.jpg';
       return PhotoItem(
-        name: 'bukti_web_${DateTime.now().millisecondsSinceEpoch}.png',
+        name: fileName,
         bytes: watermarkedBytes,
         latitude: lat,
         longitude: lng,
@@ -266,12 +303,12 @@ class FotoHelper {
         locationLabel: locLabel,
         alamatJalan: alamatJalan,
       );
-      final fileName = 'bukti_win_${DateTime.now().millisecondsSinceEpoch}.png';
-      final savedPath = await _compressAndSave(watermarkedBytes, fileName);
+      final fileName = 'bukti_win_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final saved = await _compressAndSave(watermarkedBytes, fileName);
       return PhotoItem(
         name: fileName,
-        bytes: watermarkedBytes,
-        path: savedPath,
+        bytes: saved.bytes,
+        path: saved.path,
         latitude: lat,
         longitude: lng,
         locationLabel: locLabel,
@@ -298,12 +335,14 @@ class FotoHelper {
   /// Wrapper to handle compression and persistence for the result from GPSCameraScreen
   static Future<PhotoItem?> processCameraResult(PhotoItem? result) async {
     if (result == null) return null;
-    final fileName = result.name;
-    final savedPath = await _compressAndSave(result.bytes, fileName);
+    final fileName = result.name.endsWith('.png')
+        ? result.name.replaceAll('.png', '.jpg')
+        : result.name;
+    final saved = await _compressAndSave(result.bytes, fileName);
     return PhotoItem(
-      name: result.name,
-      bytes: result.bytes,
-      path: savedPath,
+      name: fileName,
+      bytes: saved.bytes,
+      path: saved.path ?? result.path,
       latitude: result.latitude,
       longitude: result.longitude,
       locationLabel: result.locationLabel,

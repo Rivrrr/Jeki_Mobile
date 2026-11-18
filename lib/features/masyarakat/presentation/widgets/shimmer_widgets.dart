@@ -30,56 +30,90 @@ class ShimmerWidget extends StatelessWidget {
   }
 }
 
+/// Skeleton layar Detail Laporan.
+///
+/// Harus scrollable dan tidak memakai lebar tetap: sebelumnya `Column` polos
+/// tanpa scroll + `Row` berisi dua kotak 160 px membuat overflow sesaat
+/// (badge "OVERFLOWED") sebelum data asli datang, terutama di layar sempit.
 class LaporanDetailSkeleton extends StatelessWidget {
   const LaporanDetailSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerWidget(height: 60, shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-          const SizedBox(height: 16),
-          const ShimmerWidget(height: 24),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 160,
-            child: Row(
-              children: [
-                ShimmerWidget(width: 160, height: 160, shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                const SizedBox(width: 10),
-                ShimmerWidget(width: 160, height: 160, shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              ],
+    final width = MediaQuery.sizeOf(context).width;
+    // Ukuran thumbnail mengikuti lebar layar agar dua kotak + gap selalu muat.
+    final thumb = ((width - 32 - 10) / 2 - 24).clamp(96.0, 140.0).toDouble();
+
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ShimmerWidget(
+              height: 60,
+              shapeBorder: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(16)),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          const ShimmerWidget(height: 24),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey[200]!),
+            const SizedBox(height: 16),
+            const ShimmerWidget(height: 24),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: thumb,
+              child: Row(
+                children: [
+                  ShimmerWidget(
+                    width: thumb,
+                    height: thumb,
+                    shapeBorder: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ShimmerWidget(
+                    width: thumb,
+                    height: thumb,
+                    shapeBorder: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Column(
-              children: List.generate(5, (index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    ShimmerWidget(width: 18, height: 18, shapeBorder: const CircleBorder()),
-                    const SizedBox(width: 8),
-                    ShimmerWidget(width: 70, height: 12),
-                    const SizedBox(width: 8),
-                    ShimmerWidget(width: 100, height: 12),
-                  ],
+            const SizedBox(height: 20),
+            const ShimmerWidget(height: 24),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  5,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: const [
+                        ShimmerWidget(width: 18, height: 18, shapeBorder: CircleBorder()),
+                        SizedBox(width: 8),
+                        Flexible(child: ShimmerWidget(width: 70, height: 12)),
+                        SizedBox(width: 8),
+                        Flexible(child: ShimmerWidget(width: 100, height: 12)),
+                      ],
+                    ),
+                  ),
                 ),
-              )),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
