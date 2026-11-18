@@ -1,0 +1,646 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:infrast/core/database/local_db_helper.dart';
+import 'package:infrast/core/services/laporan_service.dart';
+import 'package:infrast/core/utils/foto_helper.dart';
+import 'package:infrast/features/masyarakat/presentation/pages/laporan/laporan_berhasil_page.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/laporan/step_kategori.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/laporan/step_lokasi.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/laporan/step_foto.dart';
+import 'package:infrast/features/masyarakat/presentation/widgets/laporan/step_konfirmasi.dart';
+
+class CreateLaporanScreen extends StatefulWidget {
+  const CreateLaporanScreen({super.key});
+
+  @override
+  State<CreateLaporanScreen> createState() => _CreateLaporanScreenState();
+}
+
+class _CreateLaporanScreenState extends State<CreateLaporanScreen> {
+  final PageController _pageController = PageController();
+  int _currentStep = 0;
+  final int _totalSteps = 4;
+
+  // â”€â”€ Form State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Step 1: Kategori
+  int? _selectedKategoriId;
+  String? _selectedKategoriNama;
+
+  // Step 2: Lokasi
+  int? _selectedKecamatanId;
+  String? _selectedKecamatanNama;
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _detailController = TextEditingController();
+
+  // Step 3: Foto, GPS & Deskripsi
+  final List<PhotoItem> _photos = [];
+  double? _latitude;
+  double? _longitude;
+  String? _coordinateLabel;
+  final TextEditingController _deskripsiController = TextEditingController();
+
+  // Step 4: Konfirmasi
+  bool _isAgreed = false;
+  late final String _kodePersetujuan;
+
+  // Submitting state
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Kode persetujuan stabil (tidak berubah-ubah saat checklist diklik)
+    final randomSuffix = (10000 + Random().nextInt(90000)).toString();
+    _kodePersetujuan = 'RPT-${DateTime.now().year}-$randomSuffix';
+    _initDeviceLocation();
+  }
+
+  Future<void> _initDeviceLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+        final pos = await Geolocator.getLastKnownPosition();
+        if (pos != null && mounted) {
+          setState(() {
+            _latitude = pos.latitude;
+            _longitude = pos.longitude;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _alamatController.dispose();
+    _detailController.dispose();
+    _deskripsiController.dispose();
+    super.dispose();
+  }
+
+  // â”€â”€ Judul otomatis dari kategori + kecamatan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  String get _judulOtomatis {
+    final kat = _selectedKategoriNama ?? 'Laporan';
+    final kec = _selectedKecamatanNama != null
+        ? ' - Kec. $_selectedKecamatanNama'
+        : '';
+    return '$kat$kec';
+  }
+
+  void _nextStep() {
+    if (_currentStep < _totalSteps - 1) {
+      if (!_validateCurrentStep()) return;
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _submitLaporan();
+    }
+  }
+
+  void _prevStep() {
+    if (_currentStep > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  void _jumpToStep(int step) {
+    _pageController.animateToPage(
+      step,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  bool _validateCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        if (_selectedKategoriId == null) {
+          _showError('Pilih kategori terlebih dahulu');
+          return false;
+        }
+        return true;
+      case 1:
+        if (_selectedKecamatanId == null) {
+          _showError('Pilih kecamatan lokasi kerusakan');
+          return false;
+        }
+        if (_alamatController.text.trim().isEmpty) {
+          _showError('Alamat lokasi tidak boleh kosong');
+          return false;
+        }
+        return true;
+      case 2:
+        if (_photos.length < 3) {
+          _showError(
+            'Wajib mengambil minimal 3 foto bukti kerusakan langsung dari kamera '
+            '(saat ini baru ${_photos.length}/3 foto).',
+          );
+          return false;
+        }
+        if (_deskripsiController.text.trim().isEmpty) {
+          _showError('Deskripsi kondisi kerusakan tidak boleh kosong');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Mengambil foto bukti kerusakan langsung dari Kamera perangkat.
+  /// Pengambilan dari galeri tidak diizinkan demi menjamin keaslian data lapangan.
+  /// Foto otomatis diberi watermark koordinat GPS dan tanggal/jam WIB.
+  Future<void> _addPhoto() async {
+    if (_photos.length >= 5) {
+      _showError('Maksimal 5 foto bukti kerusakan yang dapat diunggah');
+      return;
+    }
+
+    try {
+      // Pastikan koordinat GPS sudah tersedia
+      if (_latitude == null || _longitude == null) {
+        final coord = FotoHelper.generateJemberCoordinate(
+          kecamatanNama: _selectedKecamatanNama,
+        );
+        _latitude = coord['latitude'] as double;
+        _longitude = coord['longitude'] as double;
+        _coordinateLabel = coord['label'] as String;
+      }
+
+      // Buka kamera asli perangkat secara langsung (Wajib kamera langsung, tanpa galeri)
+      final photoItem = await FotoHelper.ambilFotoKamera(
+        context: context,
+        latitude: _latitude!,
+        longitude: _longitude!,
+        locationLabel: _coordinateLabel ?? 'Kabupaten Jember',
+        alamatJalan: _alamatController.text.trim(),
+      );
+
+      if (photoItem == null) {
+        // Pengguna membatalkan pengambilan gambar di kamera
+        return;
+      }
+
+      final processedPhoto = await FotoHelper.processCameraResult(photoItem);
+      if (processedPhoto == null) return;
+
+      setState(() {
+        _photos.add(processedPhoto);
+      });
+
+      if (mounted) {
+        final total = _photos.length;
+        final kurang = 3 - total;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              total >= 3
+                  ? '📸 Foto ke-$total berhasil diambil & diberi watermark WIB! (Syarat min. 3 foto terpenuhi ✓)'
+                  : '📸 Foto ke-$total berhasil diambil & diberi watermark WIB! (Kurang $kurang foto lagi)',
+            ),
+            backgroundColor: total >= 3 ? const Color(0xFF16A34A) : const Color(0xFFE91E63),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on PlatformException catch (pe) {
+      _showError('Kamera fisik tidak dapat diakses (${pe.message ?? pe.code}). Pastikan izin kamera telah diberikan pada perangkat.');
+    } catch (e) {
+      _showError('Gagal mengambil foto dari kamera: ${e.toString()}');
+    }
+  }
+
+  Future<void> _submitLaporan() async {
+    if (!_isAgreed) {
+      _showError('Anda harus menyetujui pernyataan kebenaran laporan');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final lokasiLengkap = [
+        _alamatController.text.trim(),
+        _detailController.text.trim(),
+      ].where((s) => s.isNotEmpty).join(' — ');
+
+      final result = await LaporanService.createLaporan(
+        kategoriId: _selectedKategoriId!,
+        kecamatanId: _selectedKecamatanId!,
+        judul: _judulOtomatis,
+        deskripsi: _deskripsiController.text.trim(),
+        lokasi: lokasiLengkap,
+        latitude: _latitude,
+        longitude: _longitude,
+        prioritas: null, // Prioritas ditentukan oleh dinas / admin
+        foto: _photos,
+      );
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      if (result['success'] == true) {
+        final nomor = _extractNomorLaporan(result);
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => LaporanBerhasilScreen(
+              nomorLaporan: nomor.isNotEmpty ? nomor : _kodePersetujuan,
+            ),
+          ),
+        );
+      } else {
+        final msg = result['message'] ?? 'Gagal mengirim laporan. Coba lagi.';
+        _showError(msg);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      // OTOMATIS SIMPAN KE LOCAL JIKA GAGAL (Jaringan Lemah/Offline)
+      try {
+        final lokasiLengkap = [
+          _alamatController.text.trim(),
+          _detailController.text.trim(),
+        ].where((s) => s.isNotEmpty).join(' — ');
+
+        await LocalDbHelper.instance.savePendingReport({
+          'judul': _judulOtomatis,
+          'kategori_id': _selectedKategoriId,
+          'kecamatan_id': _selectedKecamatanId,
+          'deskripsi': _deskripsiController.text.trim(),
+          'lokasi': lokasiLengkap,
+          'latitude': _latitude,
+          'longitude': _longitude,
+          'foto_paths': _photos.map((p) => p.path ?? p.name).join(','),
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        _showError('Koneksi lemah. Laporan tersimpan otomatis di perangkat dan akan diunggah saat jaringan lancar.');
+      } catch (dbError) {
+        _showError('Terjadi kesalahan serius: ${e.toString()}');
+      }
+    }
+  }
+
+  String _getStepTitle(int step) {
+    switch (step) {
+      case 0:
+        return 'Apa yang ingin dilaporkan?';
+      case 1:
+        return 'Di mana lokasinya?';
+      case 2:
+        return 'Foto Bukti & Deskripsi';
+      case 3:
+        return 'Periksa Kembali';
+      default:
+        return '';
+    }
+  }
+
+  String _getStepSubtitle(int step) {
+    switch (step) {
+      case 0:
+        return 'PILIH KATEGORI';
+      case 1:
+        return 'LOKASI';
+      case 2:
+        return 'BUKTI & DESKRIPSI';
+      case 3:
+        return 'KONFIRMASI';
+      default:
+        return '';
+    }
+  }
+
+  String _extractNomorLaporan(Map<String, dynamic> result) {
+    final payload = result['data'];
+    if (payload is Map<String, dynamic>) {
+      final candidates = [
+        payload['nomor'],
+        payload['data'] is Map ? (payload['data'] as Map)['nomor'] : null,
+        payload['laporan'] is Map ? (payload['laporan'] as Map)['nomor'] : null,
+      ];
+
+      for (final candidate in candidates) {
+        if (candidate != null) {
+          final text = candidate.toString().trim();
+          if (text.isNotEmpty) return text;
+        }
+      }
+    }
+
+    final rawBody = result['raw_body'];
+    if (rawBody is Map<String, dynamic>) {
+      final nested = rawBody['data'];
+      if (nested is Map<String, dynamic>) {
+        final nomor = nested['nomor']?.toString().trim();
+        if (nomor != null && nomor.isNotEmpty) return nomor;
+      }
+
+      final nomor = rawBody['nomor']?.toString().trim();
+      if (nomor != null && nomor.isNotEmpty) return nomor;
+    }
+
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // â”€â”€ App Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _prevStep,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        size: 20,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'LANGKAH ${_currentStep + 1} DARI $_totalSteps â€” ${_getStepSubtitle(_currentStep)}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFE91E63),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getStepTitle(_currentStep),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // â”€â”€ Progress Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 8.0,
+              ),
+              child: _buildProgressBar(),
+            ),
+            const SizedBox(height: 16),
+
+            // â”€â”€ PageView â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (index) =>
+                      setState(() => _currentStep = index),
+                  children: [
+                    // Step 1: Kategori
+                    StepKategori(
+                      selectedKategoriId: _selectedKategoriId,
+                      selectedKategoriNama: _selectedKategoriNama,
+                      onSelect: (id, nama) {
+                        setState(() {
+                          _selectedKategoriId = id;
+                          _selectedKategoriNama = nama;
+                        });
+                      },
+                    ),
+
+                    // Step 2: Lokasi
+                    StepLokasi(
+                      alamatController: _alamatController,
+                      detailController: _detailController,
+                      selectedKecamatanId: _selectedKecamatanId,
+                      selectedKecamatanNama: _selectedKecamatanNama,
+                      latitude: _latitude,
+                      longitude: _longitude,
+                      onKecamatanSelected: (id, nama) {
+                        setState(() {
+                          _selectedKecamatanId = id;
+                          _selectedKecamatanNama = nama;
+                          if (_latitude != null && _longitude != null) {
+                            _coordinateLabel = 'Kec. $nama, Kab. Jember';
+                          }
+                        });
+                      },
+                      onCoordinateChanged: (lat, lng, label) {
+                        setState(() {
+                          _latitude = lat;
+                          _longitude = lng;
+                          _coordinateLabel = label;
+                        });
+                      },
+                    ),
+
+                    // Step 3: Foto, GPS & Deskripsi (Digabungkan)
+                    StepFoto(
+                      photos: _photos,
+                      onAddPhoto: _addPhoto,
+                      onRemovePhoto: (index) {
+                        setState(() {
+                          _photos.removeAt(index);
+                        });
+                      },
+                      deskripsiController: _deskripsiController,
+                      latitude: _latitude,
+                      longitude: _longitude,
+                      coordinateLabel: _coordinateLabel,
+                    ),
+
+                    // Step 4: Konfirmasi
+                    StepKonfirmasi(
+                      reportId: _kodePersetujuan,
+                      kategori: _selectedKategoriNama,
+                      kecamatan: _selectedKecamatanNama,
+                      alamat: _alamatController.text,
+                      photos: _photos,
+                      deskripsi: _deskripsiController.text,
+                      latitude: _latitude,
+                      longitude: _longitude,
+                      isAgreed: _isAgreed,
+                      onAgreeChanged: (val) =>
+                          setState(() => _isAgreed = val ?? false),
+                      onEditKategori: () => _jumpToStep(0),
+                      onEditLokasi: () => _jumpToStep(1),
+                      onEditFoto: () => _jumpToStep(2),
+                      onEditDeskripsi: () => _jumpToStep(2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // â”€â”€ Bottom Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 20,
+              offset: Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              if (_currentStep > 0) ...[
+                OutlinedButton(
+                  onPressed: _isSubmitting ? null : _prevStep,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(width: 16),
+              ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _nextStep,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE91E63),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 4,
+                          shadowColor: const Color(0xFFE91E63).withValues(alpha: 0.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                _currentStep == _totalSteps - 1
+                                    ? 'Kirim Laporan'
+                                    : 'Lanjut',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return Row(
+      children: List.generate(_totalSteps * 2 - 1, (index) {
+        final stepIndex = index ~/ 2;
+        final isLine = index % 2 != 0;
+        if (isLine) {
+          final isCompleted = _currentStep > stepIndex;
+          return Expanded(
+            child: Container(
+              height: 4,
+              color: isCompleted
+                  ? const Color(0xFFE91E63)
+                  : const Color(0xFFFCE4EC),
+            ),
+          );
+        } else {
+          final isActive = _currentStep >= stepIndex;
+          return Container(
+            width: isActive ? 24 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: isActive
+                  ? const Color(0xFFE91E63)
+                  : const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          );
+        }
+      }),
+    );
+  }
+}
+
