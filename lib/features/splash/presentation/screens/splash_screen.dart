@@ -7,7 +7,7 @@ import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/features/auth/data/auth_service.dart';
 import 'package:infrast/features/auth/presentation/screens/login_screen.dart';
 import 'package:infrast/features/masyarakat/presentation/pages/main_navigation_page.dart';
-import 'package:infrast/features/pelaksana/presentation/screens/pelaksana_home_page.dart';
+import 'package:infrast/features/pelaksana/presentation/main_pelaksana_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         // Baca role dari storage untuk routing yang tepat
         final role = await AuthService.getRole();
         nextScreen = (role == 'pelaksana')
-            ? const PelaksanaHomePage()
+            ? const MainPelaksanaPage()
             : const MainNavigation();
       } else {
         nextScreen = const LoginScreen();
