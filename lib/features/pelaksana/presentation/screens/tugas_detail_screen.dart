@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:infrast/core/constants/app_colors.dart'; // TAMBAHAN: Import AppColors
+import 'package:infrast/core/constants/app_colors.dart';
 import 'package:infrast/core/constants/app_sizes.dart';
 import 'package:infrast/core/utils/foto_helper.dart';
 import 'package:infrast/features/pelaksana/data/tugas_service.dart';
@@ -106,7 +106,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
       title: 'Mulai Tugas',
       msg: 'Apakah Anda yakin ingin memulai tugas ini?\nStatus akan berubah menjadi "Sedang Dikerjakan".',
       confirmText: 'Mulai',
-      confirmColor: AppColors.primary, // UBAH: pakai primary pink
+      confirmColor: AppColors.primary,
     );
     if (!confirm || !mounted) return;
     setState(() => _actionLoading = true);
@@ -152,7 +152,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     decoration: InputDecoration(
                       hintText: 'Misal: Batu split 2 truk, aspal instan 10 sak, semen 5 sak...',
                       filled: true,
-                      fillColor: AppColors.background, // UBAH: pakai background
+                      fillColor: AppColors.background,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.all(12),
                     ),
@@ -188,7 +188,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                       hintText: 'Misal: 7.500.000',
                       filled: true,
-                      fillColor: AppColors.background, // UBAH: pakai background
+                      fillColor: AppColors.background,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.all(12),
                     ),
@@ -216,7 +216,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     decoration: InputDecoration(
                       hintText: 'Misal: 3 Hari Kerja',
                       filled: true,
-                      fillColor: AppColors.background, // UBAH: pakai background
+                      fillColor: AppColors.background,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.all(12),
                     ),
@@ -240,7 +240,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     decoration: InputDecoration(
                       hintText: 'Rekomendasi teknis kondisi kerusakan & tindak lanjut...',
                       filled: true,
-                      fillColor: AppColors.background, // UBAH: pakai background
+                      fillColor: AppColors.background,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.all(12),
                     ),
@@ -318,7 +318,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
-              Icon(Icons.trending_up_rounded, color: AppColors.primary), // UBAH: primary pink
+              Icon(Icons.trending_up_rounded, color: AppColors.primary),
               SizedBox(width: 8),
               Text('Laporan Harian Kerja', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
@@ -329,12 +329,12 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Kemajuan Fisik: $persentase%',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)), // UBAH: primary pink
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const SizedBox(height: 8),
                 Slider(
                   value: persentase.toDouble(),
                   min: 0, max: 100, divisions: 20,
-                  activeColor: AppColors.primary, // UBAH: primary pink
+                  activeColor: AppColors.primary,
                   onChanged: (v) => setS(() => persentase = v.toInt()),
                 ),
                 const SizedBox(height: 12),
@@ -346,7 +346,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                   decoration: InputDecoration(
                     hintText: 'Misal: Pemadatan lapisan dasar dan penuangan aspal hotmix...',
                     filled: true,
-                    fillColor: AppColors.background, // UBAH: pakai background
+                    fillColor: AppColors.background,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.all(12),
                   ),
@@ -414,7 +414,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary, // UBAH: primary pink
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -485,7 +485,6 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Catatan Penyelesaian (Wajib)
                       const Text(
                         'Catatan Pekerjaan Selesai *',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
@@ -498,7 +497,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                           hintText: 'Cth: Pengaspalan jalan lubang sepanjang 25 meter telah rampung dan siap dilalui warga...',
                           hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                           filled: true,
-                          fillColor: AppColors.background, // UBAH: pakai background
+                          fillColor: AppColors.background,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -522,7 +521,6 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Foto Bukti Penyelesaian (Wajib Kamera)
                       const Text(
                         'Foto Bukti Pekerjaan (Wajib Kamera) *',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
@@ -656,7 +654,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                                         border: Border.all(color: const Color(0xFFA7F3D0)),
                                       ),
                                       child: const Text(
-                                        'âœ“ Geotagged',
+                                        '✓ Geotagged',
                                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                                       ),
                                     ),
@@ -780,7 +778,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? AppColors.error : AppColors.success, // UBAH: pakai error/success
+      backgroundColor: isError ? AppColors.error : AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
@@ -789,9 +787,9 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // UBAH: pakai background
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary, // UBAH: pakai primary pink
+        backgroundColor: AppColors.primary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Colors.white),
@@ -810,19 +808,19 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary)) // UBAH: primary pink
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : _error != null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 48, color: AppColors.error), // UBAH: error
+                      const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                       const SizedBox(height: 16),
                       Text(_error!, textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _load,
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary), // UBAH: primary
+                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
                         child: const Text('Coba Lagi', style: TextStyle(color: Colors.white)),
                       ),
                     ],
@@ -943,11 +941,11 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border), // UBAH: border
+                border: Border.all(color: AppColors.border),
               ),
               child: Text(
                 l['deskripsi'],
-                style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.5), // UBAH: textSecondary
+                style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary, height: 1.5),
               ),
             ),
           ],
@@ -969,8 +967,8 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     foto[i]['url'],
                     width: 160, height: 160, fit: BoxFit.cover,
                     errorBuilder: (ctx, err, stack) => Container(
-                      width: 160, color: AppColors.border, // UBAH: border
-                      child: const Icon(Icons.broken_image_outlined, color: AppColors.textMuted), // UBAH: textMuted
+                      width: 160, color: AppColors.border,
+                      child: const Icon(Icons.broken_image_outlined, color: AppColors.textMuted),
                     ),
                   ),
                 ),
@@ -978,70 +976,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
             ),
           ],
 
-          // Log Pengerjaan Harian (Foto & Progress)
-          if ((l['progress_list'] as List? ?? []).isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _sectionHeader('Log Pengerjaan Harian (Foto & Aktivitas)'),
-            const SizedBox(height: 10),
-            ...((l['progress_list'] as List).map((p) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border), // UBAH: border
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentPink, // UBAH: accentPink
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${p['persentase']}%',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12), // UBAH: primary
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        p['created_at'] != null ? p['created_at'].toString().split('T').first : '',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11), // UBAH: textMuted
-                      ),
-                    ],
-                  ),
-                  if (p['catatan'] != null && (p['catatan'] as String).isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      p['catatan'],
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary), // UBAH: textSecondary
-                    ),
-                  ],
-                  if (p['foto_url'] != null) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        p['foto_url'],
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 80,
-                          color: AppColors.background, // UBAH: background
-                          child: const Center(child: Icon(Icons.broken_image, color: AppColors.textMuted)), // UBAH: textMuted
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ))),
-          ],
+          // [BLOK LOG PENGERJAAN HARIAN DIHAPUS DARI SINI]
 
           // Riwayat Status
           if (riwayat.isNotEmpty) ...[
@@ -1067,7 +1002,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
         boxShadow: [BoxShadow(color: Color(0x10000000), blurRadius: 16, offset: Offset(0, -4))],
       ),
       child: _actionLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary)) // UBAH: primary pink
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : switch (status) {
               'menunggu_tinjauan' => SizedBox(
                   width: double.infinity,
@@ -1096,7 +1031,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     children: [
                       Icon(Icons.check_circle_outline, color: Color(0xFFD97706), size: 20),
                       SizedBox(width: 8),
-                      Text('Hasil Tinjauan Terkirim â€” Menunggu Penugasan Admin',
+                      Text('Hasil Tinjauan Terkirim — Menunggu Penugasan Admin',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF92400E), fontSize: 12)),
                     ],
                   ),
@@ -1108,7 +1043,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: const Text('Mulai Kerjakan Tugas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary, // UBAH: primary pink
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1123,8 +1058,8 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                         icon: const Icon(Icons.camera_alt_outlined, size: 18),
                         label: const Text('Laporan Harian', style: TextStyle(fontWeight: FontWeight.bold)),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary, // UBAH: primary pink
-                          side: const BorderSide(color: AppColors.primary), // UBAH: primary pink
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
                           padding: const EdgeInsets.symmetric(vertical: 13),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -1161,7 +1096,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Pekerjaan Selesai â€” Menunggu Verifikasi Admin',
+                          'Pekerjaan Selesai — Menunggu Verifikasi Admin',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFC2410C), fontSize: 13),
                           textAlign: TextAlign.center,
                         ),
@@ -1184,7 +1119,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Diverifikasi Admin â€” Menunggu Konfirmasi Warga (Maks 7 Hari)',
+                          'Diverifikasi Admin — Menunggu Konfirmasi Warga (Maks 7 Hari)',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E), fontSize: 12),
                           textAlign: TextAlign.center,
                         ),
@@ -1219,7 +1154,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border), // UBAH: border
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: riwayat.asMap().entries.map((e) {
@@ -1238,7 +1173,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
                     if (!isLast)
-                      Expanded(child: Container(width: 2, color: AppColors.border)), // UBAH: border
+                      Expanded(child: Container(width: 2, color: AppColors.border)),
                   ],
                 ),
                 const SizedBox(width: 12),
@@ -1254,10 +1189,10 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                         ),
                         if (r['catatan'] != null && (r['catatan'] as String).isNotEmpty)
                           Text(r['catatan'],
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)), // UBAH: textSecondary
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         if (r['tanggal'] != null)
                           Text(_formatDate(r['tanggal']),
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted)), // UBAH: textMuted
+                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
                       ],
                     ),
                   ),
@@ -1275,7 +1210,7 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border), // UBAH: border
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: rows.asMap().entries.map((e) {
@@ -1285,16 +1220,16 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(children: [
-                Icon(icon, size: 16, color: AppColors.textMuted), // UBAH: textMuted
+                Icon(icon, size: 16, color: AppColors.textMuted),
                 const SizedBox(width: 10),
                 SizedBox(
                   width: 80,
-                  child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)), // UBAH: textMuted
+                  child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                 ),
-                const Text('  :  ', style: TextStyle(color: AppColors.border)), // UBAH: border
+                const Text('  :  ', style: TextStyle(color: AppColors.border)),
                 Expanded(
                   child: Text(value,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)), // UBAH: textPrimary
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 ),
               ]),
             ),
@@ -1307,10 +1242,9 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
 
   Widget _sectionHeader(String title) {
     return Text(title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)); // UBAH: textPrimary
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary));
   }
 
-  // ── UBAH: Menyesuaikan status style dengan AppColors
   (Color, Color) _statusStyle(String status) {
     return switch (status) {
       'baru'                           => (AppColors.primary, AppColors.accentPink),
