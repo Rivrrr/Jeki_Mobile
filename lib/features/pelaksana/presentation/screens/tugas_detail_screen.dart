@@ -328,16 +328,8 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Kemajuan Fisik: $persentase%',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                const SizedBox(height: 8),
-                Slider(
-                  value: persentase.toDouble(),
-                  min: 0, max: 100, divisions: 20,
-                  activeColor: AppColors.primary,
-                  onChanged: (v) => setS(() => persentase = v.toInt()),
-                ),
-                const SizedBox(height: 12),
+                // ── FITUR KEMAJUAN FISIK & SLIDER DIHIDE DARI SINI ──
+
                 const Text('Apa yang dikerjakan hari ini?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextField(
@@ -375,36 +367,19 @@ class _TugasDetailScreenState extends State<TugasDetailScreen> {
                     ],
                   )
                 else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picker = ImagePicker();
-                            final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-                            if (img != null) {
-                              setS(() => selectedFoto = File(img.path));
-                            }
-                          },
-                          icon: const Icon(Icons.camera_alt, size: 18),
-                          label: const Text('Kamera', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final picker = ImagePicker();
-                            final img = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-                            if (img != null) {
-                              setS(() => selectedFoto = File(img.path));
-                            }
-                          },
-                          icon: const Icon(Icons.photo_library, size: 18),
-                          label: const Text('Galeri', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                    ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picker = ImagePicker();
+                        final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                        if (img != null) {
+                          setS(() => selectedFoto = File(img.path));
+                        }
+                      },
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text('Kamera', style: TextStyle(fontSize: 12)),
+                    ),
                   ),
               ],
             ),
